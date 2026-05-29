@@ -1,0 +1,12 @@
+node_modules
+dist
+.netlify
+.env
+.env.local
+npm-debug.log*
+qa/*.log
+qa/*.png
+*.png
+*.zip
+*-desktop*.png
+*-mobile*.png
