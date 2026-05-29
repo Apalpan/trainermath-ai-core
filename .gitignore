@@ -4,8 +4,7 @@ dist
 .env
 .env.local
 npm-debug.log*
-qa/*.log
-qa/*.png
+qa/
 *.png
 *.zip
 *-desktop*.png
