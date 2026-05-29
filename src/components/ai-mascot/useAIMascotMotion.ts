@@ -43,6 +43,7 @@ export function useAIMascotMotion(size: AIMascotSize, intensity: AIMascotIntensi
       pixels: Math.round(isMobile ? Math.min(base.pixels, viewportWidth * 0.86) : base.pixels),
       particleCount: Math.max(140, Math.round(base.particles * intensityScale.particles * mobileParticleScale)),
       connectionCount: Math.max(24, Math.round(base.connections * intensityScale.particles * mobileConnectionScale)),
+      synapseCount: Math.max(10, Math.round(base.synapses * intensityScale.particles * mobileConnectionScale)),
       radius: base.radius,
       pointSize: base.pointSize,
       prefersReducedMotion,

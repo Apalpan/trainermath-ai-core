@@ -18,8 +18,10 @@ type ParticleSystem = {
   amplitudes: Float32Array;
   roles: Float32Array;
   connectionPairs: Uint16Array;
+  synapsePairs: Uint16Array;
   particleGeometry: THREE.BufferGeometry;
   lineGeometry: THREE.BufferGeometry;
+  synapseGeometry: THREE.BufferGeometry;
 };
 
 type SceneProps = {
@@ -27,6 +29,7 @@ type SceneProps = {
   intensity: AIMascotIntensity;
   particleCount: number;
   connectionCount: number;
+  synapseCount: number;
   radius: number;
   pointSize: number;
   interactive: boolean;
@@ -78,6 +81,7 @@ export default function AIMascotOrb({
             intensity={intensity}
             particleCount={motionConfig.particleCount}
             connectionCount={motionConfig.connectionCount}
+            synapseCount={motionConfig.synapseCount}
             radius={motionConfig.radius}
             pointSize={motionConfig.pointSize}
             interactive={interactive}
@@ -95,6 +99,7 @@ function AIMascotScene({
   intensity,
   particleCount,
   connectionCount,
+  synapseCount,
   radius,
   pointSize,
   interactive,
@@ -104,10 +109,11 @@ function AIMascotScene({
   const pointsMaterialRef = useRef<THREE.PointsMaterial>(null);
   const echoMaterialRef = useRef<THREE.PointsMaterial>(null);
   const lineMaterialRef = useRef<THREE.LineBasicMaterial>(null);
+  const synapseMaterialRef = useRef<THREE.LineBasicMaterial>(null);
   const glowMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   const system = useMemo(
-    () => createParticleSystem(particleCount, connectionCount, radius),
-    [connectionCount, particleCount, radius],
+    () => createParticleSystem(particleCount, connectionCount, synapseCount, radius),
+    [connectionCount, particleCount, radius, synapseCount],
   );
   const echoSystem = useMemo(() => createEchoGeometry(Math.max(32, Math.round(particleCount * 0.08)), radius), [particleCount, radius]);
   const moodSettings = moodConfig[mood];
@@ -117,6 +123,7 @@ function AIMascotScene({
     const elapsed = state.clock.elapsedTime;
     const positions = system.particleGeometry.attributes.position as THREE.BufferAttribute;
     const linePositions = system.lineGeometry.attributes.position as THREE.BufferAttribute;
+    const synapsePositions = system.synapseGeometry.attributes.position as THREE.BufferAttribute;
     const echoPositions = echoSystem.geometry.attributes.position as THREE.BufferAttribute;
     const moodPulse = Math.sin(elapsed * moodSettings.pulseSpeed) * moodSettings.pulseAmplitude;
     const thinkingPulse = mood === 'thinking' ? Math.sin(elapsed * 2.7) * 0.024 : 0;
@@ -182,6 +189,35 @@ function AIMascotScene({
     }
     linePositions.needsUpdate = true;
 
+    for (let pairIndex = 0; pairIndex < system.synapsePairs.length / 2; pairIndex += 1) {
+      const a = system.synapsePairs[pairIndex * 2] * 3;
+      const b = system.synapsePairs[pairIndex * 2 + 1] * 3;
+      const target = pairIndex * 6;
+      const phase = elapsed * (0.88 + moodSettings.satelliteSpeed) + pairIndex * 0.37;
+      const waveHead = (Math.sin(phase) + 1) * 0.5;
+      const tail = Math.max(0, waveHead - 0.18);
+      const ax = system.currentPositions[a];
+      const ay = system.currentPositions[a + 1];
+      const az = system.currentPositions[a + 2];
+      const bx = system.currentPositions[b];
+      const by = system.currentPositions[b + 1];
+      const bz = system.currentPositions[b + 2];
+
+      synapsePositions.setXYZ(
+        target / 3,
+        THREE.MathUtils.lerp(ax, bx, tail),
+        THREE.MathUtils.lerp(ay, by, tail),
+        THREE.MathUtils.lerp(az, bz, tail),
+      );
+      synapsePositions.setXYZ(
+        target / 3 + 1,
+        THREE.MathUtils.lerp(ax, bx, waveHead),
+        THREE.MathUtils.lerp(ay, by, waveHead),
+        THREE.MathUtils.lerp(az, bz, waveHead),
+      );
+    }
+    synapsePositions.needsUpdate = true;
+
     for (let index = 0; index < echoSystem.basePositions.length / 3; index += 1) {
       const offset = index * 3;
       const bx = echoSystem.basePositions[offset];
@@ -203,9 +239,16 @@ function AIMascotScene({
 
     if (lineMaterialRef.current) {
       const flicker = mood === 'thinking' || mood === 'processing'
-        ? 0.68 + Math.sin(elapsed * 2.2) * 0.22 + Math.sin(elapsed * 3.7) * 0.1
+        ? 0.78 + Math.sin(elapsed * 2.8) * 0.26 + Math.sin(elapsed * 4.2) * 0.12
         : 0.78 + Math.sin(elapsed * 0.72) * 0.12;
       lineMaterialRef.current.opacity = showConnections ? moodSettings.connectionOpacity * flicker : 0;
+    }
+
+    if (synapseMaterialRef.current) {
+      const activePulse = mood === 'processing' || mood === 'speaking' ? 1.2 : 0.86;
+      synapseMaterialRef.current.opacity = showConnections
+        ? moodSettings.connectionOpacity * activePulse * (0.68 + Math.sin(elapsed * 3.1) * 0.26)
+        : 0;
     }
 
     if (glowMaterialRef.current) {
@@ -234,6 +277,17 @@ function AIMascotScene({
           color={aiMascotColors.cyan}
           transparent
           opacity={showConnections ? moodSettings.connectionOpacity : 0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </lineSegments>
+
+      <lineSegments geometry={system.synapseGeometry}>
+        <lineBasicMaterial
+          ref={synapseMaterialRef}
+          color={aiMascotColors.particleCore}
+          transparent
+          opacity={showConnections ? moodSettings.connectionOpacity * 0.9 : 0}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
@@ -268,7 +322,12 @@ function AIMascotScene({
   );
 }
 
-function createParticleSystem(count: number, connectionCount: number, radius: number): ParticleSystem {
+function createParticleSystem(
+  count: number,
+  connectionCount: number,
+  synapseCount: number,
+  radius: number,
+): ParticleSystem {
   const random = seededRandom(9017);
   const basePositions = new Float32Array(count * 3);
   const currentPositions = new Float32Array(count * 3);
@@ -316,15 +375,28 @@ function createParticleSystem(count: number, connectionCount: number, radius: nu
   }
 
   const pairs: number[] = [];
-  const attempts = connectionCount * 28;
+  const synapsePairs: number[] = [];
+  const attempts = (connectionCount + synapseCount) * 34;
   for (let attempt = 0; attempt < attempts && pairs.length < connectionCount * 2; attempt += 1) {
     const a = Math.floor(random() * count);
     const b = Math.floor(random() * count);
     if (a === b) continue;
     if (roles[a] > 1.8 || roles[b] > 1.8) continue;
     const distance = vectors[a].distanceTo(vectors[b]);
-    if (distance > radius * 0.58 || distance < radius * 0.1) continue;
+    if (distance > radius * 0.64 || distance < radius * 0.08) continue;
     pairs.push(a, b);
+  }
+
+  for (let attempt = 0; attempt < attempts && synapsePairs.length < synapseCount * 2; attempt += 1) {
+    const a = Math.floor(random() * count);
+    const b = Math.floor(random() * count);
+    if (a === b) continue;
+    if (roles[a] > 1.8 || roles[b] > 1.8) continue;
+    const distance = vectors[a].distanceTo(vectors[b]);
+    if (distance > radius * 0.52 || distance < radius * 0.08) continue;
+    const isCoreSignal = vectors[a].length() < radius * 1.02 || vectors[b].length() < radius * 1.02;
+    if (!isCoreSignal) continue;
+    synapsePairs.push(a, b);
   }
 
   const particleGeometry = new THREE.BufferGeometry();
@@ -346,6 +418,21 @@ function createParticleSystem(count: number, connectionCount: number, radius: nu
   }
   lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
 
+  const synapseGeometry = new THREE.BufferGeometry();
+  const synapsePositions = new Float32Array(synapsePairs.length * 3);
+  for (let pairIndex = 0; pairIndex < synapsePairs.length / 2; pairIndex += 1) {
+    const a = synapsePairs[pairIndex * 2] * 3;
+    const b = synapsePairs[pairIndex * 2 + 1] * 3;
+    const target = pairIndex * 6;
+    synapsePositions[target] = currentPositions[a];
+    synapsePositions[target + 1] = currentPositions[a + 1];
+    synapsePositions[target + 2] = currentPositions[a + 2];
+    synapsePositions[target + 3] = currentPositions[b];
+    synapsePositions[target + 4] = currentPositions[b + 1];
+    synapsePositions[target + 5] = currentPositions[b + 2];
+  }
+  synapseGeometry.setAttribute('position', new THREE.BufferAttribute(synapsePositions, 3));
+
   return {
     basePositions,
     currentPositions,
@@ -354,8 +441,10 @@ function createParticleSystem(count: number, connectionCount: number, radius: nu
     amplitudes,
     roles,
     connectionPairs: new Uint16Array(pairs),
+    synapsePairs: new Uint16Array(synapsePairs),
     particleGeometry,
     lineGeometry,
+    synapseGeometry,
   };
 }
 

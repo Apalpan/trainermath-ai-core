@@ -22,6 +22,7 @@ export type AIMascotSizeConfig = {
   pixels: number;
   particles: number;
   connections: number;
+  synapses: number;
   radius: number;
   pointSize: number;
 };
