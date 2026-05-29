@@ -1,6 +1,6 @@
-# TrainerMath AI Core
+# AILive Orb
 
-TrainerMath is a React/Vite prototype for mental math training with a reusable WebGL AI Core orb visual.
+AILive Orb is a reusable React/Three.js neural orb for AI interfaces, dashboards, chat agents, and automation views.
 
 ## Run Locally
 
@@ -19,6 +19,14 @@ The static build is generated in `dist/`.
 
 ## Product Notes
 
-- Training modes: operations and Flash Anzan.
-- Visual system: `src/components/visuals/AICoreOrb.tsx`.
+- Reusable component: `src/components/ai-mascot/AILiveOrb.tsx`.
+- Lower-level component: `src/components/ai-mascot/AIMascotOrb.tsx`.
 - Deployment target: GitHub Pages static hosting.
+
+## Usage
+
+```tsx
+import { AILiveOrb } from './components/ai-mascot';
+
+<AILiveOrb view="automation" size="lg" intensity="high" autoCycle interactive showConnections />
+```

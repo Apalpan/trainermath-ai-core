@@ -37,7 +37,7 @@ export function AIMascotFallback({
           `radial-gradient(circle at 50% 50%, ${aiMascotColors.cyan}2b 0%, transparent 34%), ` +
           `radial-gradient(circle at 58% 46%, ${aiMascotColors.violet}24 0%, transparent 42%), ` +
           'radial-gradient(circle, rgba(223,247,255,0.08) 0%, transparent 62%)',
-        boxShadow: `0 0 ${Math.round(pixels * 0.16)}px rgba(24, 200, 255, ${config.glowIntensity})`,
+        boxShadow: `0 0 ${Math.round(pixels * 0.18)}px rgba(51, 242, 139, ${config.glowIntensity})`,
         animationDuration: `${Math.max(3.4 - config.pulseSpeed, 1.8)}s`,
       }}
       aria-hidden="true"
@@ -69,7 +69,7 @@ export function AIMascotFallback({
         return (
           <span
             key={index}
-            className="ai-mascot-fallback-node absolute h-1.5 w-1.5 rounded-full bg-[#DFF7FF] shadow-[0_0_14px_rgba(24,200,255,0.75)]"
+            className="ai-mascot-fallback-node absolute h-1.5 w-1.5 rounded-full bg-[#E9FFF3] shadow-[0_0_14px_rgba(51,242,139,0.8)]"
             style={{
               left: `${x}%`,
               top: `${y}%`,

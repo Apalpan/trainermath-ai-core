@@ -231,7 +231,7 @@ function AIMascotScene({
       <lineSegments geometry={system.lineGeometry}>
         <lineBasicMaterial
           ref={lineMaterialRef}
-          color={aiMascotColors.particleSoft}
+          color={aiMascotColors.cyan}
           transparent
           opacity={showConnections ? moodSettings.connectionOpacity : 0}
           blending={THREE.AdditiveBlending}
