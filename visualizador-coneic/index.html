@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Visualizador CONEIC Cusco 2026</title>
+    <style>
+      :root {
+        --navy: #07142b;
+        --panel: #101f3f;
+        --line: rgba(255, 255, 255, 0.14);
+        --gold: #f2c118;
+        --purple: #9b4dff;
+        --text: #f7f8ff;
+        --muted: #a8b2c4;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 20% 12%, rgba(155, 77, 255, 0.22), transparent 34%),
+          radial-gradient(circle at 80% 8%, rgba(242, 193, 24, 0.18), transparent 28%),
+          linear-gradient(135deg, #07142b 0%, #0b1a35 44%, #132247 100%);
+        color: var(--text);
+      }
+
+      body {
+        display: grid;
+        grid-template-columns: minmax(280px, 420px) minmax(360px, 1fr);
+        gap: 32px;
+        align-items: center;
+        padding: 32px;
+      }
+
+      .brief {
+        max-width: 420px;
+      }
+
+      .eyebrow {
+        margin: 0 0 14px;
+        color: var(--gold);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(32px, 5vw, 56px);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .copy {
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      a,
+      button {
+        min-height: 44px;
+        border: 0;
+        border-radius: 999px;
+        padding: 0 18px;
+        font: inherit;
+        font-weight: 850;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .primary {
+        display: inline-flex;
+        align-items: center;
+        background: var(--gold);
+        color: var(--navy);
+      }
+
+      .secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        border: 1px solid var(--line);
+      }
+
+      .shell {
+        display: grid;
+        justify-items: center;
+        gap: 18px;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .device {
+        width: 390px;
+        height: 844px;
+        border: 10px solid #050a16;
+        border-radius: 46px;
+        background: #050a16;
+        box-shadow: 0 34px 90px rgba(0, 0, 0, 0.46);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .device::before {
+        content: "";
+        position: absolute;
+        z-index: 2;
+        top: 12px;
+        left: 50%;
+        width: 118px;
+        height: 28px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: #050a16;
+      }
+
+      iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: #0b1a35;
+      }
+
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+
+      @media (max-width: 920px) {
+        body {
+          grid-template-columns: 1fr;
+          padding: 22px;
+        }
+
+        .brief {
+          max-width: none;
+        }
+
+        .device {
+          width: min(390px, 100%);
+          height: min(844px, 78vh);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="brief">
+      <p class="eyebrow">CONEIC Cusco 2026</p>
+      <h1>Visualizador mobile</h1>
+      <p class="copy">
+        Vista web en marco de iPhone para revisar la app oficial del participante sin instalar Expo Go.
+        Usa las credenciales mock: participante@coneic.com / 12345678.
+      </p>
+      <div class="actions">
+        <a class="primary" href="/trainermath-ai-core/coneic-cusco-2026-mobile/" target="_blank" rel="noreferrer">
+          Abrir app completa
+        </a>
+        <button class="secondary" type="button" onclick="reloadPreview()">Recargar vista</button>
+      </div>
+    </main>
+
+    <section class="shell" aria-label="Visualizador de dispositivo">
+      <div class="controls">
+        <button class="secondary" type="button" onclick="setDevice(320, 568)">iPhone SE</button>
+        <button class="secondary" type="button" onclick="setDevice(390, 844)">iPhone 15</button>
+        <button class="secondary" type="button" onclick="setDevice(430, 932)">Pro Max</button>
+      </div>
+      <div class="device" id="device">
+        <iframe
+          id="preview"
+          title="CONEIC Cusco 2026 app preview"
+          src="/trainermath-ai-core/coneic-cusco-2026-mobile/"
+        ></iframe>
+      </div>
+      <div class="meta" id="sizeLabel">390 x 844</div>
+    </section>
+
+    <script>
+      const device = document.getElementById("device");
+      const preview = document.getElementById("preview");
+      const label = document.getElementById("sizeLabel");
+
+      function setDevice(width, height) {
+        device.style.width = `${width}px`;
+        device.style.height = `${height}px`;
+        label.textContent = `${width} x ${height}`;
+      }
+
+      function reloadPreview() {
+        preview.src = preview.src;
+      }
+    </script>
+  </body>
+</html>
