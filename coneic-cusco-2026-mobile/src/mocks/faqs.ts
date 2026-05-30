@@ -1,0 +1,68 @@
+import type { FAQ } from '../types';
+
+export const faqs: FAQ[] = [
+  {
+    id: 'faq-inscripcion',
+    question: '¿Cómo me inscribo?',
+    answer: 'La inscripción se valida desde la plataforma oficial del comité. En la app puedes revisar tu estado, QR y credencial una vez confirmada.',
+    keywords: ['inscribo', 'inscripción', 'registro', 'matrícula'],
+    actionLabel: 'Ver mi perfil',
+    actionRoute: 'Profile',
+  },
+  {
+    id: 'faq-ponencia',
+    question: '¿Dónde es mi ponencia?',
+    answer: 'Tu próximo evento aparece en Inicio. También puedes revisar la agenda por día, filtrar por ponencias y abrir el detalle con sala y horario.',
+    keywords: ['ponencia', 'charla', 'sala', 'auditorio', 'dónde'],
+    actionLabel: 'Ir a agenda',
+    actionRoute: 'AgendaTab',
+  },
+  {
+    id: 'faq-horas',
+    question: '¿Cuántas horas tengo?',
+    answer: 'Tienes 18 horas acumuladas verificables. La meta para el certificado general es 30 horas.',
+    keywords: ['horas', 'asistencia', 'acumuladas', 'certificado'],
+    actionLabel: 'Ver asistencia',
+    actionRoute: 'CheckIn',
+  },
+  {
+    id: 'faq-credencial',
+    question: '¿Dónde recojo mi credencial?',
+    answer: 'La credencial se recoge en la Zona de Registro. Lleva tu DNI y muestra tu QR desde el tab central de la app.',
+    keywords: ['credencial', 'recojo', 'qr', 'registro'],
+    actionLabel: 'Mostrar QR',
+    actionRoute: 'Profile',
+  },
+  {
+    id: 'faq-visitas',
+    question: '¿Dónde están las visitas técnicas?',
+    answer: 'Las visitas salen desde el Punto de buses visitas técnicas. Revisa cupos, punto de encuentro y recomendaciones en la sección Visitas.',
+    keywords: ['visitas', 'técnicas', 'buses', 'turísticas'],
+    actionLabel: 'Ver visitas',
+    actionRoute: 'Visits',
+  },
+  {
+    id: 'faq-certificados',
+    question: '¿Cuándo podré descargar mi certificado?',
+    answer: 'Los certificados estarán disponibles al finalizar el evento si cumples los requisitos de horas y validación.',
+    keywords: ['descargar', 'certificado', 'pdf', 'constancia'],
+    actionLabel: 'Ver certificados',
+    actionRoute: 'Certificates',
+  },
+  {
+    id: 'faq-mapa',
+    question: '¿Dónde queda el auditorio?',
+    answer: 'El Auditorio Principal UAC aparece en el mapa esquemático con horarios y eventos asociados.',
+    keywords: ['mapa', 'auditorio', 'ubicación', 'llegar'],
+    actionLabel: 'Abrir mapa',
+    actionRoute: 'MapTab',
+  },
+  {
+    id: 'faq-soporte',
+    question: 'Necesito soporte',
+    answer: 'Puedes acercarte a la Zona de Registro o escribir al equipo organizador. Guarda capturas si tienes problemas con QR o asistencia.',
+    keywords: ['soporte', 'ayuda', 'problema', 'contacto'],
+    actionLabel: 'Configuración',
+    actionRoute: 'Settings',
+  },
+];
