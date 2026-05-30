@@ -162,6 +162,7 @@ export function AssistantScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingBottom: 104,
   },
   hero: {
     minHeight: 92,
