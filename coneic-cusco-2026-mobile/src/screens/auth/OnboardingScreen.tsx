@@ -1,33 +1,34 @@
-import { ChevronRight } from 'lucide-react-native';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ChevronRight, MessageCircle, QrCode, ShieldCheck } from 'lucide-react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ConeicLogo } from '../../components/ui/ConeicLogo';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenContainer } from '../../components/ui/ScreenContainer';
 import { colors, eventMeta, radius, spacing, typography } from '../../constants/theme';
+import { onboardingFacts, onboardingSlides } from '../../mocks/demoExperience';
 import { useAuthStore } from '../../store/authStore';
 
-const slides = [
-  {
-    title: 'Todo el CONEIC en tu bolsillo',
-    body: 'Tu experiencia CONEIC empieza aquí, con agenda, credencial y avisos en un solo lugar.',
-  },
-  {
-    title: 'Tu QR, agenda, certificados y asistencia en tiempo real',
-    body: 'Horas acumuladas verificables y certificados disponibles al cumplir los requisitos del evento.',
-  },
-  {
-    title: 'Explora Cusco, participa y no te pierdas ninguna actividad',
-    body: 'Ponencias, concursos, visitas técnicas, ferias y networking organizados para decidir rápido.',
-  },
-];
+const icons = [QrCode, ShieldCheck, MessageCircle];
 
 export function OnboardingScreen() {
   const [index, setIndex] = useState(0);
   const completeOnboarding = useAuthStore((state) => state.completeOnboarding);
-  const slide = slides[index];
-  const isLast = index === slides.length - 1;
+  const slide = onboardingSlides[index];
+  const Icon = icons[index] ?? QrCode;
+  const isLast = index === onboardingSlides.length - 1;
+  const fade = useRef(new Animated.Value(0)).current;
+  const lift = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    fade.setValue(0);
+    lift.setValue(16);
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 360, useNativeDriver: true }),
+      Animated.spring(lift, { toValue: 0, damping: 15, stiffness: 110, useNativeDriver: true }),
+    ]).start();
+  }, [fade, index, lift]);
 
   const handleNext = () => {
     if (isLast) {
@@ -40,26 +41,41 @@ export function OnboardingScreen() {
   return (
     <ScreenContainer contentStyle={styles.container}>
       <View style={styles.brand}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>C26</Text>
-        </View>
-        <Text style={styles.event}>{eventMeta.fullName}</Text>
-        <Text style={styles.meta}>{eventMeta.dates} · {eventMeta.location}</Text>
+        <ConeicLogo />
+        <Text style={styles.meta}>{eventMeta.dates} · {eventMeta.location} · {eventMeta.venue}</Text>
       </View>
 
-      <GlassCard style={styles.card}>
-        <Text style={styles.title}>{slide.title}</Text>
-        <Text style={styles.body}>{slide.body}</Text>
-        <View style={styles.dots}>
-          {slides.map((item, dotIndex) => (
-            <View key={item.title} style={[styles.dot, dotIndex === index && styles.activeDot]} />
-          ))}
-        </View>
-      </GlassCard>
+      <Animated.View style={[styles.animated, { opacity: fade, transform: [{ translateY: lift }] }]}>
+        <GlassCard style={styles.card}>
+          <View style={styles.signalRow}>
+            <View style={styles.iconBox}>
+              <Icon color={colors.navyDeep} size={24} />
+            </View>
+            <Text style={styles.signal}>{slide.signal}</Text>
+          </View>
+          <Text style={styles.title}>{slide.title}</Text>
+          <Text style={styles.body}>{slide.body}</Text>
+          <View style={styles.dots}>
+            {onboardingSlides.map((item, dotIndex) => (
+              <View key={item.id} style={[styles.dot, dotIndex === index && styles.activeDot]} />
+            ))}
+          </View>
+        </GlassCard>
+      </Animated.View>
+
+      <View style={styles.factGrid}>
+        {onboardingFacts.map((fact) => (
+          <View key={fact.id} style={styles.fact}>
+            <Text style={styles.factValue}>{fact.value}</Text>
+            <Text style={styles.factLabel}>{fact.label}</Text>
+            <Text style={styles.factHelper}>{fact.helper}</Text>
+          </View>
+        ))}
+      </View>
 
       <View style={styles.footer}>
         <Pressable accessibilityRole="button" accessibilityLabel="Saltar onboarding" onPress={completeOnboarding}>
-          <Text style={styles.skip}>Saltar</Text>
+          <Text style={styles.skip}>Entrar directo al demo</Text>
         </Pressable>
         <PrimaryButton
           label={isLast ? 'Ingresar al evento' : 'Continuar'}
@@ -75,41 +91,45 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingTop: spacing.xxxl,
+    paddingTop: spacing.xxl,
   },
   brand: {
     alignItems: 'center',
     gap: spacing.sm,
   },
-  logo: {
-    width: 92,
-    height: 92,
-    borderRadius: radius.xl,
+  meta: {
+    color: colors.textSecondary,
+    fontSize: typography.small,
+    fontWeight: '700',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  animated: {
+    width: '100%',
+  },
+  card: {
+    minHeight: 258,
+    justifyContent: 'center',
+    gap: spacing.lg,
+  },
+  signalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  iconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
     backgroundColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
-  logoText: {
-    color: colors.navyDeep,
-    fontSize: typography.h1,
+  signal: {
+    color: colors.gold,
+    fontSize: typography.small,
     fontWeight: '900',
-  },
-  event: {
-    color: colors.white,
-    fontSize: typography.h1,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  meta: {
-    color: colors.textSecondary,
-    fontSize: typography.body,
-    fontWeight: '700',
-  },
-  card: {
-    minHeight: 250,
-    justifyContent: 'center',
-    gap: spacing.lg,
+    textTransform: 'uppercase',
   },
   title: {
     color: colors.white,
@@ -133,8 +153,38 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
   },
   activeDot: {
-    width: 28,
+    width: 34,
     backgroundColor: colors.gold,
+  },
+  factGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  fact: {
+    flex: 1,
+    minHeight: 104,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    padding: spacing.md,
+    justifyContent: 'space-between',
+  },
+  factValue: {
+    color: colors.white,
+    fontSize: typography.h3,
+    fontWeight: '900',
+  },
+  factLabel: {
+    color: colors.gold,
+    fontSize: typography.tiny,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  factHelper: {
+    color: colors.textSecondary,
+    fontSize: typography.tiny,
+    lineHeight: 15,
   },
   footer: {
     gap: spacing.lg,

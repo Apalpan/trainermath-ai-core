@@ -20,7 +20,13 @@ export function ProfileScreen() {
 
   if (!user) return null;
 
-  const qrValue = `CONEIC-2026|USER:${user.participantCode}|DNI:${user.dni}`;
+  const initials = user.fullName
+    .split(' ')
+    .map((part) => part.slice(0, 1))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  const qrValue = `CONEIC-2026|USER:${user.participantCode}|EVENT:coneic-cusco-2026|SIG:demo`;
 
   const shareCredential = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -36,7 +42,7 @@ export function ProfileScreen() {
       <GlassCard style={styles.identityCard}>
         <View style={styles.profileTop}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user.firstName.slice(0, 1)}R</Text>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.name}>{user.fullName}</Text>

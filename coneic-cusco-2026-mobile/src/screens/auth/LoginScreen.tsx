@@ -30,7 +30,7 @@ export function LoginScreen() {
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'participante@coneic.com',
+      email: 'apalpan@coneic.com',
       passcode: '12345678',
     },
   });
@@ -67,7 +67,7 @@ export function LoginScreen() {
                   keyboardType="email-address"
                   onBlur={onBlur}
                   onChangeText={onChange}
-                  placeholder="participante@coneic.com"
+                  placeholder="apalpan@coneic.com"
                   placeholderTextColor={colors.muted}
                   style={styles.input}
                   value={value}
@@ -110,7 +110,7 @@ export function LoginScreen() {
           <SecondaryButton label="Verificar inscripción" onPress={() => undefined} icon={<Eye color={colors.white} size={17} />} />
         </GlassCard>
 
-        <Text style={styles.credentials}>Credenciales mock: participante@coneic.com · 12345678</Text>
+        <Text style={styles.credentials}>Credenciales demo: apalpan@coneic.com / 12345678</Text>
       </KeyboardAvoidingView>
     </ScreenContainer>
   );

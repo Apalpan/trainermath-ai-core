@@ -79,9 +79,11 @@ export const eventMeta = {
   fullName: 'XXXIII CONEIC Cusco 2026',
   subtitle: 'Aplicativo oficial del participante',
   dates: '10-14 agosto',
-  location: 'Cusco, Perú',
+  location: 'Cusco, Peru',
   venue: 'Universidad Andina del Cusco',
   supportEmail: 'xxxiiiconeiccusco2026@gmail.com',
+  capacity: '6000 participantes',
+  promise: 'Menos colas, cero planillas y horas acumuladas verificables',
 };
 
 export const typeLabels: Record<string, string> = {

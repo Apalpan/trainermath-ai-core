@@ -43,4 +43,11 @@ export const attendanceRecords: AttendanceRecord[] = [
     hours: 5,
     status: 'validated',
   },
+  {
+    id: 'att-ia',
+    eventTitle: 'Workshop IA aplicada a gestión de obra',
+    date: '14 agosto · 10:00',
+    hours: 6,
+    status: 'validated',
+  },
 ];

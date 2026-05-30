@@ -9,7 +9,7 @@ export const authService = {
       return delay(mockUser);
     }
 
-    return rejectAfter('Credenciales inválidas. Usa participante@coneic.com y 12345678.');
+    return rejectAfter('Credenciales invalidas. Usa apalpan@coneic.com y 12345678.');
   },
 
   async logout(): Promise<boolean> {

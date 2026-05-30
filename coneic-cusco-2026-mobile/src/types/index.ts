@@ -176,6 +176,44 @@ export interface ChatMessage {
   text: string;
   createdAt: string;
   actions?: ChatAction[];
+  intent?: string;
+  confidence?: number;
+  sourceLabel?: string;
+}
+
+export interface OnboardingFact {
+  id: string;
+  label: string;
+  value: string;
+  helper: string;
+}
+
+export interface EventHighlight {
+  id: string;
+  title: string;
+  description: string;
+  metric: string;
+  route: string;
+}
+
+export interface DemoTimelineItem {
+  id: string;
+  time: string;
+  title: string;
+  place: string;
+  status: 'now' | 'next' | 'open' | 'done';
+  route: string;
+}
+
+export interface AssistantKnowledgeItem {
+  id: string;
+  intent: string;
+  title: string;
+  answer: string;
+  keywords: string[];
+  sourceLabel: string;
+  confidence: number;
+  actions: ChatAction[];
 }
 
 export interface EventStats {

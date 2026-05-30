@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, eventMeta, radius, spacing, typography } from '../../constants/theme';
 import type { User } from '../../types';
+import { ConeicLogo } from './ConeicLogo';
 
 interface QRModalProps {
   visible: boolean;
@@ -14,7 +15,7 @@ interface QRModalProps {
 }
 
 export function QRModal({ visible, user, onClose }: QRModalProps) {
-  const qrValue = `CONEIC-2026|USER:${user.participantCode}|DNI:${user.dni}`;
+  const qrValue = `CONEIC-2026|USER:${user.participantCode}|EVENT:coneic-cusco-2026|SIG:demo`;
 
   const handleShow = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -27,9 +28,7 @@ export function QRModal({ visible, user, onClose }: QRModalProps) {
           <X color={colors.white} size={24} />
         </Pressable>
         <View style={styles.content}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>C26</Text>
-          </View>
+          <ConeicLogo compact />
           <Text style={styles.title}>Mi QR de ingreso</Text>
           <Text style={styles.subtitle}>{eventMeta.fullName}</Text>
 
@@ -65,20 +64,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.xl,
     gap: spacing.md,
-  },
-  logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  logoText: {
-    color: colors.navyDeep,
-    fontSize: typography.h2,
-    fontWeight: '900',
   },
   title: {
     color: colors.white,

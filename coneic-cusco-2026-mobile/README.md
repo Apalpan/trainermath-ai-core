@@ -1,155 +1,110 @@
 # CONEIC Cusco 2026 Mobile
 
-App mobile V1 para el XXXIII CONEIC Cusco 2026, Congreso Nacional de Estudiantes de Ingeniería Civil. Es una primera versión funcional en Expo, React Native y TypeScript, diseñada como extensión mobile premium de la landing oficial: experiencia oscura, institucional, tecnológica y con señales andinas/cusqueñas.
+Demo mobile premium para el XXXIII CONEIC Cusco 2026. La app esta enfocada en validar la experiencia del participante: onboarding, login, QR, agenda, mapa, visitas, horas, certificados, rankings y asistente IA en modo demo.
 
-Referencia visual y contenido: https://www.xxxiiiconeiccusco2026.com/
+## Links del demo
+
+- App directa: https://apalpan.github.io/trainermath-ai-core/coneic-cusco-2026-mobile/
+- Visualizador web: https://apalpan.github.io/trainermath-ai-core/visualizador-coneic/
+
+## Credenciales demo
+
+- Usuario: `Alejandro Palpan`
+- Correo: `apalpan@coneic.com`
+- Clave demo: `12345678`
+- Rol: participante verificado / invitado estrategico GEN+
+- Codigo: `CNE-2026-00001`
+
+## Flujo demo recomendado
+
+1. Abrir onboarding y mostrar la escala del evento: UAC, 10-14 agosto, 6000 participantes.
+2. Entrar con `apalpan@coneic.com / 12345678`.
+3. Mostrar Home como centro de control del participante.
+4. Abrir QR y explicar check-in verificable.
+5. Revisar agenda, timeline del dia y mapa.
+6. Preguntar al asistente por agenda, QR, horas, certificados, visitas, mapa o pagos.
+7. Cerrar con certificados y horas acumuladas.
+
+## Asistente IA
+
+El asistente esta activo en modo demo avanzado. No llama a OpenAI desde el frontend. Responde por intencion usando una base local de conocimiento del evento y muestra acciones rapidas para navegar dentro de la app.
+
+Para activar IA real despues, usar un backend o funcion serverless como proxy seguro. Ver: `docs/assistant-ai.md`.
 
 ## Stack
 
 - Expo SDK 56
 - React Native + TypeScript
-- React Navigation para stack + bottom tabs
-- Zustand para sesión, agenda y notificaciones
-- React Hook Form + Zod para login validado
-- AsyncStorage para sesión local mock
+- React Navigation
+- Zustand
+- React Hook Form + Zod
+- AsyncStorage
 - expo-linear-gradient y expo-haptics
-- lucide-react-native para iconografía
-- react-native-qrcode-svg para QR
-- date-fns para fechas
+- lucide-react-native
+- react-native-qrcode-svg
 
-## Cómo instalar
+## Instalacion
 
 ```bash
 npm install
 ```
 
-## Cómo correr
+## Ejecucion local
 
 ```bash
 npx expo start
 ```
 
-Para iOS:
+Para web:
 
 ```bash
-npx expo start --ios
+npm run web
 ```
 
-Para Android:
+## Validacion
 
 ```bash
-npx expo start --android
+npm run typecheck
+npx expo export --platform web --output-dir dist-web
 ```
 
-Para dev build local si aplica:
+## Variables publicas
+
+Copiar `.env.example` si se necesita configurar entorno:
 
 ```bash
-npx expo run:ios
-npx expo run:android
+EXPO_PUBLIC_ASSISTANT_MODE=demo
+EXPO_PUBLIC_AI_PROXY_URL=
+EXPO_PUBLIC_EVENT_ID=coneic-cusco-2026
 ```
 
-## Credenciales mock
+## Modulos implementados
 
-- Correo: `participante@coneic.com`
-- DNI/clave: `12345678`
+- Splash y onboarding interactivo con identidad CONEIC Cusco 2026.
+- Login demo validado.
+- Home ejecutivo con timeline, metricas vivas y acciones sugeridas.
+- Perfil y QR de participante.
+- Agenda, detalle de evento, ponencias, concursos y visitas.
+- Mapa esquematico con pins.
+- Check-in/asistencia y modo staff demo.
+- Certificados con estados y QR de verificacion.
+- Estadisticas, rankings y notificaciones.
+- Asistente IA demo con intenciones, confianza, fuente y quick actions.
 
-## Estructura
+## Arquitectura preparada para backend
 
-```txt
-src/
-  components/
-    cards/
-    feedback/
-    layout/
-    ui/
-  constants/
-  mocks/
-  navigation/
-  screens/
-  services/
-  store/
-  types/
-  utils/
-```
+- `src/mocks`: datos demo reemplazables por API.
+- `src/services`: capa asincrona con Promises simuladas.
+- `src/store`: estado de sesion, agenda y notificaciones.
+- `src/screens`: pantallas de producto.
+- `src/components`: componentes reutilizables.
 
-## Módulos implementados
+## Pendientes para produccion
 
-- Splash / loading
-- Onboarding de 3 slides
-- Login con validación y sesión local
-- Home dashboard con próximo evento, QR, certificación, avisos y accesos rápidos
-- Perfil del participante con QR y credencial
-- Agenda de 5 días con filtros por tipo y agregar a mi agenda
-- Detalle de evento con variantes para ponencia, concurso y visita
-- Ponencias con búsqueda, filtros, detalle y agregar a agenda
-- Concursos con categorías, detalle y ranking mock
-- Visitas técnicas/turísticas con reserva mock
-- Mapa esquemático con pins, filtros y bottom sheet
-- Check-in/asistencia con historial y modo staff demo
-- Certificados con estados, QR de verificación y descarga mock
-- Estadísticas con ranking, medallero y barras nativas
-- Asistente CONEIC rule-based con respuestas y enlaces internos
-- Notificaciones leídas/no leídas
-- Configuración, selector visual de idioma y logout
-
-## Decisiones técnicas
-
-Se usa React Navigation en vez de Expo Router para esta V1 porque el producto necesita un grafo explícito de tabs persistentes, stack interno y pantallas modales/detalle que todavía cambiarán rápido durante validación. Esto deja el flujo claro para el equipo, reduce magia de archivos en una primera entrega y sigue siendo compatible con una migración futura si se decide adoptar rutas file-based.
-
-La UI usa StyleSheet moderno en vez de NativeWind para reducir dependencias de configuración en Expo Go y mantener performance/control visual en componentes mobile. La estructura separa mocks, servicios, stores, tipos y pantallas para que el backend real pueda entrar sin reescribir la UI.
-
-## Pendientes para producción
-
-- API backend real para usuarios, agenda, cupos, check-in y certificados.
-- Autenticación con token seguro y refresh.
-- QR firmado o hash, nunca DNI completo.
-- Validación de asistencia contra backend.
-- Prevención de duplicidad de check-in por evento.
-- Modo offline básico para staff y sincronización posterior.
-- Logs de check-in, auditoría y trazabilidad.
-- CDN para imágenes de ponentes, sedes y sponsors.
-- Rate limiting y monitoreo.
-- Backups y panel operativo para comité.
-- Traducción completa si se activa UI multiidioma.
-
-## Backend recomendado
-
-API REST modular:
-
-- `POST /auth/login`
-- `GET /participants/me`
-- `GET /events?day=&type=&page=`
-- `POST /participants/me/agenda`
-- `GET /attendance/me`
-- `POST /staff/checkins`
-- `GET /certificates/me`
-- `GET /stats/summary`
-- `GET /notifications`
-
-Base de datos relacional para participantes, eventos, inscripciones, asistencias, certificados y rankings. Cache para agenda pública y estadísticas. Cola ligera para emisión de certificados y notificaciones.
-
-## Escalabilidad para 6000 usuarios
-
-- FlatList en listas operativas.
-- IDs estables en mocks y servicios.
-- Capa services aislada para sustituir mocks por API.
-- Estado global mínimo para evitar renders innecesarios.
-- Paginación futura prevista en agenda/ponencias.
-- QR y check-in diseñados para operar con backend y fallback offline.
-
-## Flujo futuro de QR/check-in
-
-1. Usuario autenticado recibe token firmado asociado a `participantCode`.
-2. Staff escanea QR desde modo operador.
-3. App valida firma local básica y consulta backend.
-4. Backend confirma inscripción, evento, ventana horaria y duplicidad.
-5. Se registra asistencia con `eventId`, `participantId`, `staffId`, timestamp y device.
-6. Si no hay internet, se guarda en cola offline cifrada y se sincroniza al recuperar conexión.
-
-## Publicación futura en App Store
-
-- Definir iconos finales, splash nativo y assets oficiales.
-- Configurar EAS Build y perfiles de distribución.
-- Revisar privacidad, permisos y textos de soporte.
-- Probar en iPhone SE, iPhone 13/14/15 y Pro Max.
-- Preparar screenshots, metadata y cuenta Apple Developer del comité.
+- API real para usuarios, agenda, cupos, check-in, certificados y soporte.
+- Autenticacion con token seguro y refresh.
+- QR firmado, sin datos sensibles en payload.
+- Validacion anti-duplicidad de asistencia.
+- Panel operativo para comite y staff.
+- Emision real de certificados con QR auditable.
+- Proxy IA con logs, guardrails, rate limiting y fuentes curadas.

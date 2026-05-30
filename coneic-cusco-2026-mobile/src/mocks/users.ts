@@ -1,24 +1,24 @@
 import type { User } from '../types';
 
 export const mockUser: User = {
-  id: 'user-carlos-rojas',
-  fullName: 'Carlos Rojas Quispe',
-  firstName: 'Carlos',
-  email: 'participante@coneic.com',
+  id: 'user-alejandro-palpan',
+  fullName: 'Alejandro Palpan',
+  firstName: 'Alejandro',
+  email: 'apalpan@coneic.com',
   dni: '12345678',
   phone: '+51 987 654 321',
-  university: 'Universidad Nacional de Ingeniería',
-  participantCode: 'CNE-2026-04821',
+  university: 'GEN+ / Invitado estrategico',
+  participantCode: 'CNE-2026-00001',
   role: 'participant',
-  registrationStage: 'Preventa',
+  registrationStage: 'Invitado estrategico GEN+',
   verified: true,
   paymentConfirmed: true,
   accessEnabled: true,
-  accumulatedHours: 18,
+  accumulatedHours: 24,
   requiredHours: 30,
 };
 
 export const validCredentials = {
-  email: 'participante@coneic.com',
+  email: 'apalpan@coneic.com',
   passcode: '12345678',
 };

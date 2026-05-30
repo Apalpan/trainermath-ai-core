@@ -37,7 +37,7 @@ export function CheckInScreen() {
     <ScreenContainer scroll>
       <AppHeader title="Asistencia" subtitle="Horas y check-in" onBack={navigation.goBack} />
       <View style={styles.statsRow}>
-        <StatCard label="Total" value="18 h" helper="validables" icon={CheckCircle2} />
+        <StatCard label="Total" value={`${mockUser.accumulatedHours} h`} helper="validables" icon={CheckCircle2} />
         <StatCard label="Meta" value="30 h" helper={`faltan ${remaining} h`} icon={ScanLine} />
       </View>
 
