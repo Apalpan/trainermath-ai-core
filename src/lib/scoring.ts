@@ -10,10 +10,10 @@ export const formatDuration = (milliseconds: number) => {
 };
 
 const levelFromElo = (elo: number) => {
-  if (elo >= 1700) return 'Elite mental';
-  if (elo >= 1480) return 'Avanzado rápido';
-  if (elo >= 1280) return 'Competitivo';
-  if (elo >= 1080) return 'En desarrollo';
+  if (elo >= 1750) return 'Elite mental';
+  if (elo >= 1520) return 'Avanzado rapido';
+  if (elo >= 1300) return 'Competitivo';
+  if (elo >= 1100) return 'En desarrollo';
   return 'Base inicial';
 };
 
@@ -30,19 +30,27 @@ const categoryDifficulty: Record<TrainingConfig['category'], number> = {
   subtraction: 0.88,
   multiplication: 1,
   division: 1.05,
-  fractions: 1.22,
+  fractions: 1.24,
   powers: 1.18,
   roots: 1.12,
-  algebra: 1.32,
+  algebra: 1.34,
   combined: 1.25,
-  percentages: 1.2,
+  percentages: 1.22,
+  ratios: 1.2,
+  divisibility: 1.16,
+  averages: 1.12,
   series: 1.16,
-  reasoning: 1.28,
-  mixed: 1.35,
+  geometry: 1.32,
+  trigonometry: 1.28,
+  statistics: 1.12,
+  probability: 1.2,
+  combinatorics: 1.3,
+  reasoning: 1.32,
+  mixed: 1.42,
 };
 
 const operationDifficulty = (config: TrainingConfig) => {
-  const volumeFactor = config.amount >= 100 ? 1.28 : config.amount >= 50 ? 1.16 : 1 + config.amount / 180;
+  const volumeFactor = config.amount >= 100 ? 1.3 : config.amount >= 50 ? 1.16 : 1 + config.amount / 180;
   const modeFactor = config.mode === 'speed' ? 1.12 : config.mode === 'accuracy' ? 1.04 : 1.08;
   return levelDifficulty[config.level] * categoryDifficulty[config.category] * volumeFactor * modeFactor;
 };
@@ -68,12 +76,7 @@ const capacityFrom = (speedScore: number, accuracy: number, difficulty: number, 
 const categoryRead = (answers: UserAnswer[]) => {
   const stats = answers.reduce(
     (accumulator, answer) => {
-      const current = accumulator[answer.category] ?? {
-        category: answer.category,
-        total: 0,
-        correct: 0,
-        time: 0,
-      };
+      const current = accumulator[answer.category] ?? { category: answer.category, total: 0, correct: 0, time: 0 };
       current.total += 1;
       current.correct += answer.isCorrect ? 1 : 0;
       current.time += answer.responseTimeMs;
@@ -97,15 +100,12 @@ const categoryRead = (answers: UserAnswer[]) => {
     return a.time / a.total - b.time / b.total;
   });
 
-  return {
-    weakest: rankedWeak[0]?.category,
-    best: rankedBest[0]?.category,
-  };
+  return { weakest: rankedWeak[0]?.category, best: rankedBest[0]?.category };
 };
 
 const enduranceInsight = (answers: UserAnswer[], accuracy: number) => {
   if (answers.length < 50) return 'Sprint corto: usa 50 o 100 preguntas para medir resistencia.';
-  if (accuracy < 80) return 'Conviene entrenar precisión antes de subir nivel.';
+  if (accuracy < 80) return 'Conviene entrenar precision antes de subir nivel.';
 
   const split = Math.floor(answers.length / 2);
   const first = answers.slice(0, split);
@@ -117,17 +117,13 @@ const enduranceInsight = (answers: UserAnswer[], accuracy: number) => {
   const secondErrors = second.filter((item) => !item.isCorrect).length;
 
   if (secondAvg > firstAvg * 1.18 || secondErrors > firstErrors + 2) {
-    return `Tu resistencia cae después de la pregunta ${split}. Baja ritmo inicial o entrena bloques de 25.`;
+    return `Tu resistencia cae despues de la pregunta ${split}. Baja ritmo inicial o entrena bloques de 25.`;
   }
 
   return 'Tu velocidad es estable: puedes subir dificultad o aumentar variedad.';
 };
 
-export const calculateMetrics = (
-  answers: UserAnswer[],
-  totalTimeMs: number,
-  config: TrainingConfig,
-): SessionMetrics => {
+export const calculateMetrics = (answers: UserAnswer[], totalTimeMs: number, config: TrainingConfig): SessionMetrics => {
   const correct = answers.filter((answer) => answer.isCorrect).length;
   const incorrect = answers.length - correct;
   const accuracy = answers.length ? Math.round((correct / answers.length) * 100) : 0;
@@ -146,18 +142,18 @@ export const calculateMetrics = (
   const capacity = capacityFrom(speedScore, accuracy, operationDifficulty(config), 'operations');
 
   const focus: string[] = [];
-  if (accuracy < 80) focus.push('Prioriza precisión: responde más lento hasta superar 80%.');
+  if (accuracy < 80) focus.push('Prioriza precision: responde mas lento hasta superar 80%.');
   if (averageTimeMs > targetTime) focus.push(`Reduce tiempo promedio en ${weakestLabel} con bloques de 10 preguntas.`);
   if (config.amount >= 100) focus.push(endurance);
   if (focus.length < 3) focus.push(`Sube gradualmente desde ${levelLabels[config.level]} cuando logres 90%+.`);
-  if (focus.length < 3) focus.push('Alterna aritmética, álgebra y razonamiento para mejorar transferencia.');
+  if (focus.length < 3) focus.push('Alterna aritmetica, algebra, geometria y razonamiento para mejorar transferencia.');
 
   const status =
     accuracy >= 92 && averageTimeMs <= targetTime
-      ? 'Dominio sólido'
+      ? 'Dominio solido'
       : accuracy >= 80
         ? 'Buen avance con margen de velocidad'
-        : 'Precisión en riesgo';
+        : 'Precision en riesgo';
 
   return {
     totalTimeMs,
@@ -171,8 +167,8 @@ export const calculateMetrics = (
     recommendation: focus[0],
     analysis:
       accuracy >= 90
-        ? `Alta precisión con ${formatDuration(averageTimeMs)} por pregunta. Mejor categoría: ${bestLabel}.`
-        : `La categoría más débil fue ${weakestLabel}. Prioriza exactitud antes de subir dificultad.`,
+        ? `Alta precision con ${formatDuration(averageTimeMs)} por pregunta. Mejor area: ${bestLabel}.`
+        : `La categoria mas debil fue ${weakestLabel}. Prioriza exactitud antes de subir dificultad.`,
     weakestCategory: weakestLabel,
     bestCategory: bestLabel,
     slowestPrompt: slowestAnswer?.prompt ?? '--',
@@ -183,11 +179,7 @@ export const calculateMetrics = (
   };
 };
 
-export const calculateAnzanMetrics = (
-  answer: UserAnswer,
-  totalTimeMs: number,
-  config: AnzanConfig,
-): SessionMetrics => {
+export const calculateAnzanMetrics = (answer: UserAnswer, totalTimeMs: number, config: AnzanConfig): SessionMetrics => {
   const correct = answer.isCorrect ? 1 : 0;
   const incorrect = answer.isCorrect ? 0 : 1;
   const accuracy = answer.isCorrect ? 100 : 0;
@@ -202,12 +194,12 @@ export const calculateAnzanMetrics = (
 
   const improvementFocus = answer.isCorrect
     ? [
-        `Sube a ${Math.min(config.digits + 1, 5)} dígitos cuando sostengas 3 aciertos seguidos.`,
-        config.advanceMode === 'manual' ? 'Pasa a aparición por tiempo para entrenar memoria visual.' : 'Reduce el tiempo de aparición en 100 ms.',
-        'Mantén lectura central y agrupa números en bloques mentales.',
+        `Sube a ${Math.min(config.digits + 1, 5)} digitos cuando sostengas 3 aciertos seguidos.`,
+        config.advanceMode === 'manual' ? 'Pasa a aparicion por tiempo para entrenar memoria visual.' : 'Reduce el tiempo de aparicion en 100 ms.',
+        'Manten lectura central y agrupa numeros en bloques mentales.',
       ]
     : [
-        `Repite ${config.terms} términos de ${config.digits} dígito(s) hasta lograr 80% de precisión.`,
+        `Repite ${config.terms} terminos de ${config.digits} digito(s) hasta lograr 80% de precision.`,
         'Visualiza acumulados parciales en lugar de repetir toda la secuencia.',
         config.operationMode === 'additionSubtraction' ? 'Separa positivos y negativos antes del total final.' : 'Agrupa por decenas para acelerar.',
       ];
@@ -223,13 +215,13 @@ export const calculateAnzanMetrics = (
     speedScore,
     recommendation: improvementFocus[0],
     analysis: answer.isCorrect
-      ? `Resolviste Flash Anzan de ${config.terms} términos con ${operationLabel}. Tiempo de respuesta: ${formatDuration(recallTimeMs)}.`
-      : `Fallaste la secuencia de ${operationLabel}. El cuello de botella está en retención del acumulado.`,
+      ? `Resolviste Flash Anzan de ${config.terms} terminos con ${operationLabel}. Tiempo de respuesta: ${formatDuration(recallTimeMs)}.`
+      : `Fallaste la secuencia de ${operationLabel}. El cuello de botella esta en retencion del acumulado.`,
     weakestCategory: 'Flash Anzan',
     bestCategory: answer.isCorrect ? 'Memoria operativa' : 'Pendiente',
-    slowestPrompt: `${config.terms} términos · ${config.digits} dígito(s) · ${formatDuration(revealTimeMs)} de exposición`,
+    slowestPrompt: `${config.terms} terminos - ${config.digits} digito(s) - ${formatDuration(revealTimeMs)} de exposicion`,
     improvementFocus,
-    status: answer.isCorrect ? 'Memoria activa sólida' : 'Precisión en riesgo',
+    status: answer.isCorrect ? 'Memoria activa solida' : 'Precision en riesgo',
     enduranceInsight: 'Flash Anzan mide memoria operativa; repite 3 rondas para ver estabilidad.',
     ...capacity,
   };

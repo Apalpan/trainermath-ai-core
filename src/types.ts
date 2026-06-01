@@ -11,7 +11,15 @@ export type Category =
   | 'algebra'
   | 'combined'
   | 'percentages'
+  | 'ratios'
+  | 'divisibility'
+  | 'averages'
   | 'series'
+  | 'geometry'
+  | 'trigonometry'
+  | 'statistics'
+  | 'probability'
+  | 'combinatorics'
   | 'reasoning'
   | 'mixed';
 
@@ -128,17 +136,25 @@ export const categoryLabels: Record<Category, string> = {
   algebra: 'Álgebra básica',
   combined: 'Combinadas',
   percentages: 'Porcentajes',
+  ratios: 'Razones y regla de tres',
+  divisibility: 'MCD, MCM y divisibilidad',
+  averages: 'Promedios',
   series: 'Series',
+  geometry: 'Geometría',
+  trigonometry: 'Trigonometría',
+  statistics: 'Estadística',
+  probability: 'Probabilidad',
+  combinatorics: 'Combinatoria',
   reasoning: 'Razonamiento',
-  mixed: 'Todo operaciones',
+  mixed: 'Simulacro mixto',
 };
 
 export const levelLabels: Record<Level, string> = {
-  level1: 'Nivel 1 · Base',
-  level2: 'Nivel 2 · Rápido',
-  level3: 'Nivel 3 · Intermedio',
-  level4: 'Nivel 4 · Avanzado',
-  level5: 'Nivel 5 · Experto',
+  level1: 'Nivel 1 - Base',
+  level2: 'Nivel 2 - Rápido',
+  level3: 'Nivel 3 - Intermedio',
+  level4: 'Nivel 4 - Avanzado',
+  level5: 'Nivel 5 - Experto',
 };
 
 export const modeLabels: Record<TrainingMode, string> = {
@@ -148,7 +164,7 @@ export const modeLabels: Record<TrainingMode, string> = {
 };
 
 export const drillLabels: Record<DrillKind, string> = {
-  operations: 'Operaciones',
+  operations: 'Entrenamiento matemático',
   flashAnzan: 'Flash Anzan',
 };
 
