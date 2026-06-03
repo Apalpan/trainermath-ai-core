@@ -824,7 +824,8 @@ button {
   padding: 15px;
 }
 
-.flow-layout {
+.flow-layout,
+.case-layout {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 16px;
@@ -915,7 +916,7 @@ button {
 
 .process-lane > div {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
   gap: 10px;
 }
 
@@ -944,6 +945,68 @@ button {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+.case-detail {
+  min-width: 0;
+}
+
+.case-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.case-summary-grid article,
+.insight-card,
+.support-grid article {
+  border: 1px solid #e3ebf7;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fbfdff;
+}
+
+.case-summary-grid span,
+.insight-card span {
+  color: var(--gen-primary);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.case-summary-grid p,
+.insight-card p,
+.support-grid p,
+.support-grid small {
+  margin: 8px 0 0;
+  color: var(--gen-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.case-columns {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.support-grid h3 {
+  margin: 0;
+  color: var(--gen-deep-blue);
+  font-size: 15px;
+}
+
+.support-grid small {
+  display: block;
 }
 
 .detail-list ul,
@@ -1127,7 +1190,8 @@ button {
 
   .hero-panel,
   .dashboard-grid--two,
-  .flow-layout {
+  .flow-layout,
+  .case-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1142,7 +1206,10 @@ button {
 
   .steps-grid,
   .priority-grid,
-  .role-grid {
+  .role-grid,
+  .case-columns,
+  .case-summary-grid,
+  .support-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1169,6 +1236,9 @@ button {
   .role-grid,
   .flow-summary,
   .flow-detail-grid,
+  .case-summary-grid,
+  .case-columns,
+  .support-grid,
   .question-bank {
     grid-template-columns: 1fr;
   }

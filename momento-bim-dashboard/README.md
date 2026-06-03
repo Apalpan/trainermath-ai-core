@@ -1,16 +1,16 @@
-# MOMENTO IA Adoption OS
+# MOMENTO BIM Implementation OS
 
-Dashboard GEN+ para conducir la adopcion e implementacion de IA, BIM y ECD en MOMENTO.
+Dashboard GEN+ para adopcion e implementacion BIM, ECD/CDE y mapeo de procesos en MOMENTO.
 
 ## Producto
 
-No es una landing. Es una herramienta de decision para el taller:
+No es una landing. Es una herramienta de decision y taller para implementar BIM desde procesos reales:
 
-- diagnostico preliminar;
-- madurez digital;
-- estandar ECD;
-- mapeo de 7 flujos campo-oficina;
-- GPTs internos con control humano;
+- diagnostico BIM preliminar;
+- madurez BIM/ECD;
+- estandar ECD/CDE;
+- mapeo de procesos campo-oficina;
+- casos tipo con ejemplos completos;
 - guia docente;
 - rubrica de participacion;
 - roadmap y riesgos.
@@ -31,7 +31,7 @@ npm run build
 El build estatico queda en `dist/` y se publica en GitHub Pages bajo:
 
 ```text
-https://apalpan.github.io/trainermath-ai-core/momento-ia-dashboard/
+https://apalpan.github.io/trainermath-ai-core/momento-bim-dashboard/
 ```
 
 ## Stack
