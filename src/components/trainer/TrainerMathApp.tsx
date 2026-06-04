@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   BarChart3,
   Brain,
   CheckCircle2,
@@ -9,15 +10,22 @@ import {
   Clock3,
   Flame,
   Gauge,
+  LineChart,
+  Medal,
   Play,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   Target,
+  Trophy,
   Trash2,
+  TrendingUp,
   XCircle,
+  Zap,
 } from 'lucide-react';
 import { generateExercises, generateFlashAnzanExercise } from '../../lib/exerciseGenerator';
 import { calculateAnzanMetrics, calculateMetrics, formatDuration } from '../../lib/scoring';
+import { analyzeSessions, displayPace, displaySessionConfig } from '../../lib/sessionAnalytics';
 import { clearSessions, loadSessions, saveSession } from '../../lib/storage';
 import type {
   AnswerChoice,
@@ -34,6 +42,7 @@ import type {
   TrainingSession,
   UserAnswer,
 } from '../../types';
+import type { SuggestedTraining, TrainerInsights } from '../../lib/sessionAnalytics';
 import {
   anzanAdvanceLabels,
   anzanOperationLabels,
@@ -131,12 +140,12 @@ const getSessionTitle = (session: TrainingSession) => {
 
 const getSessionDetail = (session: TrainingSession) => {
   if (session.kind === 'flashAnzan' && 'digits' in session.config) {
-    return `${session.config.terms} numeros - ${session.config.digits} digito(s)`;
+    return `${session.config.terms} números - ${session.config.digits} dígito(s)`;
   }
   if ('amount' in session.config) {
     return `${levelLabels[session.config.level]} - ${session.config.amount} preguntas`;
   }
-  return 'Sesion';
+  return 'Sesión';
 };
 
 export default function TrainerMathApp() {
@@ -174,11 +183,9 @@ export default function TrainerMathApp() {
   }, [activeDrill, answerStartedAt, anzanPhase, questionStartedAt, screen, startedAt]);
 
   const latestSession = sessions[0];
-  const bestElo = sessions.length ? Math.max(...sessions.map((session) => getMetricElo(session.metrics))) : 0;
+  const insights = useMemo(() => analyzeSessions(sessions), [sessions]);
   const correctCount = answers.filter((answer) => answer.isCorrect).length;
   const currentExercise = exercises[currentIndex];
-
-  const errorCount = useMemo(() => sessions.reduce((sum, session) => sum + session.answers.filter((answer) => !answer.isCorrect).length, 0), [sessions]);
 
   const startOperations = useCallback((nextConfig = config) => {
     const now = Date.now();
@@ -361,6 +368,15 @@ export default function TrainerMathApp() {
     setIsLocked(false);
   };
 
+  const startSuggested = (route: SuggestedTraining) => {
+    if (route.kind === 'flashAnzan') {
+      startAnzan({ ...anzanConfig, ...(route.config as Partial<AnzanConfig>) });
+      return;
+    }
+
+    startOperations({ ...config, ...(route.config as Partial<TrainingConfig>) });
+  };
+
   return (
     <main className="min-h-screen bg-[#F4F7FF] text-[#0A244C]">
       <nav className="border-b border-white/10 bg-[#040F20] text-white">
@@ -392,40 +408,32 @@ export default function TrainerMathApp() {
                     Leer - clasificar - traducir - operar - verificar
                   </p>
                   <h1 className="font-display max-w-4xl text-4xl font-black leading-[0.98] tracking-tight sm:text-6xl">
-                    Sistema de agilidad matemática
+                    Sistema adaptativo de agilidad matemática
                   </h1>
                   <p className="mt-4 max-w-2xl text-base leading-7 text-[#C7D3E6]">
-                    Entrena cálculo mental, patrones, álgebra, geometría, trigonometría, estadística, probabilidad y control bajo presión con ELO y bitácora de errores.
+                    Entrena cálculo mental, álgebra, razonamiento, memoria Anzan y resistencia con ELO, logros, rutas recomendadas y análisis por habilidad.
                   </p>
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                    <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-5 py-3 text-sm font-black text-white transition hover:bg-[#4D84FF]" onClick={() => startOperations()}>
-                      <Play size={18} /> Iniciar diagnóstico
+                    <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-5 py-3 text-sm font-black text-white transition hover:bg-[#4D84FF]" onClick={() => startSuggested(insights.suggestedTrainings[0])}>
+                      <Play size={18} /> Iniciar ruta recomendada
                     </button>
                     <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 px-5 py-3 text-sm font-black text-white transition hover:border-[#4D84FF]" onClick={() => startOperations({ ...config, amount: 100, category: 'mixed', level: 'level3' })}>
                       Resistencia 100 <ChevronRight size={18} />
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3 rounded-lg border border-white/10 bg-white/[0.06] p-4 backdrop-blur">
-                  <MetricPill label="Sesiones" value={sessions.length.toString()} />
-                  <MetricPill label="Mejor ELO" value={bestElo.toString()} />
-                  <MetricPill label="Errores" value={errorCount.toString()} />
-                </div>
+                <HeroCommandPanel insights={insights} onStart={() => startSuggested(insights.suggestedTrainings[0])} />
               </div>
             </section>
+
+            <ProgressDashboard insights={insights} onStartRoute={startSuggested} />
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
               <section className="grid gap-4">
                 <DrillSwitcher activeDrill={activeDrill} onChange={setActiveDrill} />
                 <SuggestedRoutes
-                  onOperations={(nextConfig) => {
-                    setActiveDrill('operations');
-                    setConfig({ ...config, ...nextConfig });
-                  }}
-                  onAnzan={(nextConfig) => {
-                    setActiveDrill('flashAnzan');
-                    setAnzanConfig({ ...anzanConfig, ...nextConfig });
-                  }}
+                  routes={insights.suggestedTrainings}
+                  onStartRoute={startSuggested}
                 />
                 {activeDrill === 'operations' ? (
                   <TrainingSetup config={config} onChange={setConfig} onStart={() => startOperations()} />
@@ -434,6 +442,8 @@ export default function TrainerMathApp() {
                 )}
               </section>
               <aside className="grid gap-4">
+                <AchievementsPanel achievements={insights.achievements} />
+                <LeaderboardPanel sessions={insights.leaderboard} />
                 <CapabilityPanel />
                 <HistoryPanel sessions={sessions} onClear={() => { clearSessions(); setSessions([]); }} />
               </aside>
@@ -489,6 +499,106 @@ export default function TrainerMathApp() {
   );
 }
 
+function HeroCommandPanel({ insights, onStart }: { insights: TrainerInsights; onStart: () => void }) {
+  const recommended = insights.suggestedTrainings[0];
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.06] p-4 backdrop-blur">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8DB1FF]">Estado actual</p>
+          <h2 className="font-display mt-2 text-3xl font-black text-white">{insights.status}</h2>
+          <p className="mt-2 text-sm leading-6 text-[#C7D3E6]">{insights.risk}</p>
+        </div>
+        <span className="rounded-md bg-[#2165FF] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-white">{insights.trendLabel}</span>
+      </div>
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <MetricPill label="ELO actual" value={insights.currentElo ? insights.currentElo.toString() : '--'} />
+        <MetricPill label="Mejor ELO" value={insights.bestElo ? insights.bestElo.toString() : '--'} />
+        <MetricPill label="Racha" value={insights.streak.toString()} />
+        <MetricPill label="Preguntas" value={insights.totalQuestions.toString()} />
+      </div>
+      <button className="mt-5 flex w-full items-center justify-between rounded-lg border border-[#4D84FF]/45 bg-[#2165FF]/15 px-4 py-3 text-left text-sm font-black text-white transition hover:bg-[#2165FF]" onClick={onStart}>
+        <span>
+          <span className="block text-[11px] uppercase tracking-[0.18em] text-[#8DB1FF]">Próximo objetivo</span>
+          <span className="block">{recommended.title}: {insights.nextObjective}</span>
+        </span>
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  );
+}
+
+function ProgressDashboard({ insights, onStartRoute }: { insights: TrainerInsights; onStartRoute: (route: SuggestedTraining) => void }) {
+  const unlocked = insights.achievements.filter((achievement) => achievement.unlocked).length;
+
+  return (
+    <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-6">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Dashboard de progreso</p>
+            <h2 className="font-display mt-1 text-2xl font-black text-[#0A244C]">Evidencia, foco y estabilidad</h2>
+          </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#F4F7FF] px-3 py-2 text-sm font-black text-[#2165FF]"><Sparkles size={17} />{unlocked}/{insights.achievements.length} logros</span>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <DashboardMetric icon={<TrendingUp size={18} />} label="Precisión media" value={insights.averageAccuracy ? `${insights.averageAccuracy}%` : '--'} detail={insights.status} />
+          <DashboardMetric icon={<Clock3 size={18} />} label="Tiempo medio" value={displayPace(insights.averagePaceMs)} detail="por respuesta" />
+          <DashboardMetric icon={<Target size={18} />} label="Foco débil" value={insights.weakTopic} detail="prioridad de práctica" />
+          <DashboardMetric icon={<Trophy size={18} />} label="Mejor bloque" value={insights.bestTopic} detail="ventaja actual" />
+        </div>
+        <TopicBars topics={insights.topicInsights} />
+      </div>
+
+      <div className="rounded-lg border border-[#0A244C] bg-[#040F20] p-5 text-white shadow-[0_18px_52px_rgba(4,15,32,0.18)] sm:p-6">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">Siguiente mejor acción</p>
+        <h2 className="font-display mt-1 text-2xl font-black">{insights.suggestedTrainings[0].title}</h2>
+        <p className="mt-2 text-sm leading-6 text-[#C7D3E6]">{insights.suggestedTrainings[0].copy}</p>
+        <button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-5 py-3 text-sm font-black text-white transition hover:bg-[#4D84FF]" onClick={() => onStartRoute(insights.suggestedTrainings[0])}>
+          <Zap size={18} /> Ejecutar ahora
+        </button>
+        <div className="mt-5 grid gap-2">
+          {insights.suggestedTrainings.slice(1, 4).map((route) => (
+            <button key={route.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-left text-sm font-black text-white transition hover:border-[#4D84FF]" onClick={() => onStartRoute(route)}>
+              <span>
+                <span className="block text-[11px] uppercase tracking-[0.16em] text-[#8DB1FF]">{route.badge}</span>
+                <span>{route.title}</span>
+              </span>
+              <ChevronRight size={17} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TopicBars({ topics }: { topics: TrainerInsights['topicInsights'] }) {
+  const visibleTopics = topics.length ? topics.slice(0, 5) : [{ label: 'Sin historial', accuracy: 0, averageMs: 0, attempts: 0 }];
+
+  return (
+    <div className="mt-6 rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]"><LineChart size={15} />Mapa de habilidad</p>
+        <p className="text-xs font-bold text-[#7A8AA0]">ordenado por prioridad</p>
+      </div>
+      <div className="grid gap-3">
+        {visibleTopics.map((topic) => (
+          <div key={topic.label} className="grid gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-black text-[#0A244C]">{topic.label}</span>
+              <span className="text-xs font-black text-[#7A8AA0]">{topic.accuracy ? `${topic.accuracy}% · ${displayPace(topic.averageMs)}` : 'pendiente'}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-white">
+              <div className={`h-full rounded-full ${topic.accuracy >= 85 ? 'bg-emerald-500' : topic.accuracy >= 70 ? 'bg-[#2165FF]' : 'bg-rose-500'}`} style={{ width: `${topic.accuracy}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DrillSwitcher({ activeDrill, onChange }: { activeDrill: DrillKind; onChange: (drill: DrillKind) => void }) {
   return (
     <div className="rounded-lg border border-[#DCE5F2] bg-white p-2 shadow-soft">
@@ -507,19 +617,14 @@ function DrillSwitcher({ activeDrill, onChange }: { activeDrill: DrillKind; onCh
   );
 }
 
-function SuggestedRoutes({ onOperations, onAnzan }: { onOperations: (config: Partial<TrainingConfig>) => void; onAnzan: (config: Partial<AnzanConfig>) => void }) {
-  const routes = [
-    { title: 'Diagnóstico integral', copy: '40 preguntas mixtas para ubicar nivel real.', icon: <ShieldCheck size={18} />, onClick: () => onOperations({ level: 'level2', category: 'mixed', amount: 40, mode: 'mixed' }) },
-    { title: 'Cálculo base', copy: '25 preguntas de números, fracciones y porcentajes.', icon: <Gauge size={18} />, onClick: () => onOperations({ level: 'level1', category: 'mixed', amount: 25, mode: 'speed' }) },
-    { title: 'Resistencia 100', copy: 'Fatiga, precisión y estabilidad bajo presión.', icon: <Flame size={18} />, onClick: () => onOperations({ level: 'level3', category: 'mixed', amount: 100, mode: 'mixed' }) },
-    { title: 'Flash Anzan', copy: 'Retencion visual y acumulado mental.', icon: <Brain size={18} />, onClick: () => onAnzan({ ...anzanPresets.medium, preset: 'medium' }) },
-  ];
-
+function SuggestedRoutes({ routes, onStartRoute }: { routes: SuggestedTraining[]; onStartRoute: (route: SuggestedTraining) => void }) {
+  const icons = [<ShieldCheck size={18} />, <Gauge size={18} />, <Flame size={18} />, <Brain size={18} />, <BarChart3 size={18} />];
   return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-      {routes.map((route) => (
-        <button key={route.title} className="rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF]" onClick={route.onClick}>
-          <span className="mb-3 inline-flex rounded-md bg-[#F4F7FF] p-2 text-[#2165FF]">{route.icon}</span>
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+      {routes.map((route, index) => (
+        <button key={route.id} className="rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF]" onClick={() => onStartRoute(route)}>
+          <span className="mb-3 inline-flex rounded-md bg-[#F4F7FF] p-2 text-[#2165FF]">{icons[index] ?? <Target size={18} />}</span>
+          <span className="mb-2 inline-flex rounded-md bg-[#040F20] px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">{route.badge}</span>
           <span className="block font-display text-base font-black text-[#0A244C]">{route.title}</span>
           <span className="mt-1 block text-xs font-semibold leading-5 text-[#7A8AA0]">{route.copy}</span>
         </button>
@@ -558,7 +663,7 @@ function AnzanSetup({ config, onChange, onStart }: { config: AnzanConfig; onChan
   const applyPreset = (preset: Exclude<AnzanPreset, 'custom'>) => onChange({ ...config, ...anzanPresets[preset], preset });
   return (
     <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-7">
-      <HeaderBlock eyebrow="Flash Anzan Lab" title="Entrena memoria operativa" text="Numeros aparecen uno por uno. Reten el acumulado y marca A/B/C/D al final." action="Iniciar Anzan" onAction={onStart} />
+      <HeaderBlock eyebrow="Flash Anzan Lab" title="Entrena memoria operativa" text="Números aparecen uno por uno. Retén el acumulado y marca A/B/C/D al final." action="Iniciar Anzan" onAction={onStart} />
       <div className="mt-6 grid gap-6">
         <div>
           <h3 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]">Presets</h3>
@@ -572,7 +677,7 @@ function AnzanSetup({ config, onChange, onStart }: { config: AnzanConfig; onChan
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
-          <NumberConfig label="Digitos" value={config.digits} min={1} max={5} suffix="dig." onChange={(digits) => setPartial({ digits, preset: 'custom' })} />
+          <NumberConfig label="Dígitos" value={config.digits} min={1} max={5} suffix="dig." onChange={(digits) => setPartial({ digits, preset: 'custom' })} />
           <NumberConfig label="Cantidad" value={config.terms} min={3} max={50} suffix="nums" onChange={(terms) => setPartial({ terms, preset: 'custom' })} />
           <NumberConfig label="Aparición" value={config.displayMs} min={150} max={3000} step={50} suffix="ms" onChange={(displayMs) => setPartial({ displayMs, preset: 'custom' })} />
         </div>
@@ -628,11 +733,11 @@ function FlashAnzanTraining(props: {
   const progress = props.phase === 'answer' ? 100 : ((props.index + 1) / props.exercise.terms.length) * 100;
   return (
     <section className="grid gap-5">
-      <TrainingTop label={`Flash Anzan - ${anzanOperationLabels[props.config.operationMode]}`} title={props.phase === 'sequence' ? `Numero ${props.index + 1} / ${props.exercise.terms.length}` : 'Resultado final'} elapsedMs={props.elapsedMs} questionElapsedMs={props.phase === 'answer' ? props.answerElapsedMs : 0} correct={0} incorrect={0} mode={anzanAdvanceLabels[props.config.advanceMode]} progress={progress} onCancel={props.onCancel} />
+      <TrainingTop label={`Flash Anzan - ${anzanOperationLabels[props.config.operationMode]}`} title={props.phase === 'sequence' ? `Número ${props.index + 1} / ${props.exercise.terms.length}` : 'Resultado final'} elapsedMs={props.elapsedMs} questionElapsedMs={props.phase === 'answer' ? props.answerElapsedMs : 0} correct={0} incorrect={0} mode={anzanAdvanceLabels[props.config.advanceMode]} progress={progress} onCancel={props.onCancel} />
       <div className={`trainer-card-slide rounded-lg border border-[#DCE5F2] bg-white p-5 text-center shadow-soft sm:p-8 ${props.feedback === 'correct' ? 'success-pulse' : props.feedback === 'incorrect' ? 'wrong-shake' : ''}`}>
         {props.phase === 'sequence' && term && (
           <>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Reten el acumulado</p>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Retén el acumulado</p>
             <div key={term.id} className={`flash-number mx-auto mt-7 grid min-h-56 max-w-2xl place-items-center rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] font-display text-7xl font-black sm:text-9xl ${term.signedValue < 0 ? 'text-rose-600' : 'text-[#2165FF]'}`}>
               {term.label}
             </div>
@@ -648,7 +753,7 @@ function FlashAnzanTraining(props: {
           </>
         )}
         {props.phase === 'answer' && (
-          <QuestionCard prompt="Cual fue el acumulado final?" choices={props.exercise.choices} feedback={props.feedback} selectedKey={props.selectedKey} isLocked={props.isLocked} explanation={props.exercise.explanation} answerLabel={props.exercise.answerLabel} onSelect={props.onSelect} />
+          <QuestionCard prompt="¿Cuál fue el acumulado final?" choices={props.exercise.choices} feedback={props.feedback} selectedKey={props.selectedKey} isLocked={props.isLocked} explanation={props.exercise.explanation} answerLabel={props.exercise.answerLabel} onSelect={props.onSelect} />
         )}
       </div>
     </section>
@@ -719,15 +824,77 @@ function ResultsScreen({ session, onRepeat, onSetup }: { session: TrainingSessio
       <div className="grid gap-4">
         <InfoCard title="Lectura operativa" items={[
           ['Entrenamiento', getSessionTitle(session)],
-          ['Configuracion', getSessionDetail(session)],
+          ['Configuración', getSessionDetail(session)],
           ['Estado', metrics.status],
           ['Racha ELO', `${metrics.streakImpact >= 0 ? '+' : ''}${metrics.streakImpact}`],
-          ['Foco debil', metrics.weakestCategory],
-          ['Mejor area', metrics.bestCategory],
+          ['Foco débil', metrics.weakestCategory],
+          ['Mejor área', metrics.bestCategory],
           ['Resistencia', metrics.enduranceInsight],
         ]} />
         <QuestionReview answers={session.answers} />
       </div>
+    </section>
+  );
+}
+
+function AchievementsPanel({ achievements }: { achievements: TrainerInsights['achievements'] }) {
+  return (
+    <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Gamificación</p>
+          <h2 className="font-display text-xl font-black">Logros</h2>
+        </div>
+        <Award className="text-[#2165FF]" size={22} />
+      </div>
+      <div className="mt-4 grid gap-3">
+        {achievements.slice(0, 6).map((achievement) => (
+          <div key={achievement.id} className={`rounded-lg border p-3 ${achievement.unlocked ? 'border-emerald-200 bg-emerald-50' : 'border-[#DCE5F2] bg-[#F4F7FF]'}`}>
+            <div className="flex items-start gap-3">
+              <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-md text-white ${achievement.unlocked ? 'bg-emerald-500' : 'bg-[#7A8AA0]'}`}>
+                {achievement.unlocked ? <Trophy size={17} /> : <Medal size={17} />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-[#0A244C]">{achievement.title}</p>
+                <p className="mt-1 text-xs leading-5 text-[#7A8AA0]">{achievement.description}</p>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
+                  <div className={`h-full rounded-full ${achievement.unlocked ? 'bg-emerald-500' : 'bg-[#2165FF]'}`} style={{ width: `${achievement.progress}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LeaderboardPanel({ sessions }: { sessions: TrainingSession[] }) {
+  return (
+    <section className="rounded-lg border border-[#0A244C] bg-[#040F20] p-5 text-white shadow-soft">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">Ranking local</p>
+          <h2 className="font-display text-xl font-black">Top sesiones</h2>
+        </div>
+        <Medal className="text-[#8DB1FF]" size={22} />
+      </div>
+      {sessions.length === 0 ? (
+        <p className="mt-4 rounded-lg border border-white/10 bg-white/[0.06] p-4 text-sm leading-6 text-[#C7D3E6]">Completa sesiones para crear tu ranking personal.</p>
+      ) : (
+        <div className="mt-4 grid gap-2">
+          {sessions.map((session, index) => (
+            <div key={session.id} className="grid grid-cols-[32px_minmax(0,1fr)_72px] items-center gap-3 rounded-lg border border-white/10 bg-white/[0.06] p-3">
+              <span className="grid h-8 w-8 place-items-center rounded-md bg-[#2165FF] text-xs font-black text-white">{index + 1}</span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-white">{getSessionTitle(session)}</p>
+                <p className="truncate text-xs font-semibold text-[#7A8AA0]">{displaySessionConfig(session)}</p>
+              </div>
+              <span className="text-right font-display text-lg font-black text-[#8DB1FF]">{getMetricElo(session.metrics)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -760,7 +927,7 @@ function HistoryPanel({ sessions, onClear }: { sessions: TrainingSession[]; onCl
     <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Bitacora</p>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Bitácora</p>
           <h2 className="font-display text-xl font-black">Historial</h2>
         </div>
         {sessions.length > 0 && <button className="rounded-lg border border-[#DCE5F2] p-2 text-[#7A8AA0]" onClick={onClear} aria-label="Borrar historial"><Trash2 size={17} /></button>}
@@ -848,6 +1015,17 @@ function NumberConfig({ label, value, min, max, step = 1, suffix, onChange }: { 
   );
 }
 
+function DashboardMetric({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-4">
+      <div className="mb-3 inline-flex rounded-md bg-white p-2 text-[#2165FF]">{icon}</div>
+      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#7A8AA0]">{label}</p>
+      <p className="mt-1 break-words font-display text-2xl font-black leading-tight text-[#0A244C]">{value}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-[#7A8AA0]">{detail}</p>
+    </div>
+  );
+}
+
 function MetricPill({ label, value }: { label: string; value: string }) {
   return <div className="rounded-lg border border-white/10 bg-white/[0.07] px-3 py-3 text-center"><p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8DB1FF]">{label}</p><p className="font-display text-2xl font-black text-white">{value}</p></div>;
 }
@@ -868,7 +1046,7 @@ function InfoCard({ title, items }: { title: string; items: Array<[string, strin
 function QuestionReview({ answers }: { answers: UserAnswer[] }) {
   return (
     <div className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Bitacora de errores y tiempo</p>
+      <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Bitácora de errores y tiempo</p>
       <div className="mt-4 max-h-[430px] space-y-2 overflow-auto pr-1">
         {answers.map((answer, index) => (
           <div key={`${answer.exerciseId}-${index}`} className="grid grid-cols-[36px_minmax(0,1fr)_82px] items-center gap-3 rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-3">
