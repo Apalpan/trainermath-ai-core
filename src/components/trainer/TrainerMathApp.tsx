@@ -387,7 +387,7 @@ export default function TrainerMathApp() {
             </div>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">TrainerMath</p>
-              <p className="font-display text-lg font-black">Agilidad matemática V1.3</p>
+              <p className="font-display text-lg font-black">Agilidad matemática V1.4</p>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#7A8AA0]">by Alejandro Palpan</p>
             </div>
           </div>
@@ -429,7 +429,7 @@ export default function TrainerMathApp() {
             <ProgressDashboard insights={insights} onStartRoute={startSuggested} />
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-              <section className="grid gap-4">
+              <section className="grid content-start gap-4">
                 <DrillSwitcher activeDrill={activeDrill} onChange={setActiveDrill} />
                 <SuggestedRoutes
                   routes={insights.suggestedTrainings}
@@ -441,7 +441,7 @@ export default function TrainerMathApp() {
                   <AnzanSetup config={anzanConfig} onChange={setAnzanConfig} onStart={() => startAnzan()} />
                 )}
               </section>
-              <aside className="grid gap-4">
+              <aside className="grid content-start gap-4">
                 <AchievementsPanel achievements={insights.achievements} />
                 <LeaderboardPanel sessions={insights.leaderboard} />
                 <CapabilityPanel />
@@ -620,13 +620,18 @@ function DrillSwitcher({ activeDrill, onChange }: { activeDrill: DrillKind; onCh
 function SuggestedRoutes({ routes, onStartRoute }: { routes: SuggestedTraining[]; onStartRoute: (route: SuggestedTraining) => void }) {
   const icons = [<ShieldCheck size={18} />, <Gauge size={18} />, <Flame size={18} />, <Brain size={18} />, <BarChart3 size={18} />];
   return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+    <div className="grid gap-3 lg:grid-cols-2">
       {routes.map((route, index) => (
-        <button key={route.id} className="rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF]" onClick={() => onStartRoute(route)}>
-          <span className="mb-3 inline-flex rounded-md bg-[#F4F7FF] p-2 text-[#2165FF]">{icons[index] ?? <Target size={18} />}</span>
-          <span className="mb-2 inline-flex rounded-md bg-[#040F20] px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">{route.badge}</span>
-          <span className="block font-display text-base font-black text-[#0A244C]">{route.title}</span>
-          <span className="mt-1 block text-xs font-semibold leading-5 text-[#7A8AA0]">{route.copy}</span>
+        <button key={route.id} className={`group min-h-28 rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF] ${index === 0 ? 'lg:col-span-2' : ''}`} onClick={() => onStartRoute(route)}>
+          <span className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#F4F7FF] text-[#2165FF] transition group-hover:bg-[#2165FF] group-hover:text-white">{icons[index] ?? <Target size={18} />}</span>
+            <span className="min-w-0 flex-1">
+              <span className="mb-2 inline-flex rounded-md bg-[#040F20] px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">{route.badge}</span>
+              <span className="block font-display text-lg font-black leading-tight text-[#0A244C]">{route.title}</span>
+              <span className="mt-1 block text-sm font-semibold leading-5 text-[#7A8AA0]">{route.copy}</span>
+            </span>
+            <ChevronRight className="mt-1 shrink-0 text-[#7A8AA0] transition group-hover:text-[#2165FF]" size={18} />
+          </span>
         </button>
       ))}
     </div>
@@ -635,6 +640,33 @@ function SuggestedRoutes({ routes, onStartRoute }: { routes: SuggestedTraining[]
 
 function TrainingSetup({ config, onChange, onStart }: { config: TrainingConfig; onChange: (config: TrainingConfig) => void; onStart: () => void }) {
   const setPartial = (partial: Partial<TrainingConfig>) => onChange({ ...config, ...partial });
+  const [customAmount, setCustomAmount] = useState(amountOptions.includes(config.amount) ? '' : String(config.amount));
+  const [isEditingCustomAmount, setIsEditingCustomAmount] = useState(false);
+
+  useEffect(() => {
+    if (isEditingCustomAmount) return;
+    setCustomAmount(amountOptions.includes(config.amount) ? '' : String(config.amount));
+  }, [config.amount, isEditingCustomAmount]);
+
+  const commitCustomAmount = (rawValue = customAmount) => {
+    if (!rawValue) return;
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) return;
+    const amount = Math.min(150, Math.max(5, Math.round(parsed)));
+    setCustomAmount(String(amount));
+    setIsEditingCustomAmount(false);
+    setPartial({ amount });
+  };
+
+  const updateCustomAmount = (value: string) => {
+    const rawValue = value.replace(/\D/g, '').slice(0, 3);
+    setCustomAmount(rawValue);
+    const parsed = Number(rawValue);
+    if (rawValue && parsed >= 5 && parsed <= 150) {
+      setPartial({ amount: parsed });
+    }
+  };
+
   return (
     <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-7">
       <HeaderBlock eyebrow="Mission control" title="Configura entrenamiento" text="Primero automatiza operación base. Luego sube a patrón, problema tipo, simulacro y registro de errores." action="Iniciar" onAction={onStart} />
@@ -646,12 +678,13 @@ function TrainingSetup({ config, onChange, onStart }: { config: TrainingConfig; 
           <h3 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]">Cantidad de preguntas</h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
             {amountOptions.map((amount) => (
-              <button key={amount} className={`rounded-lg border px-4 py-3 text-sm font-black transition ${config.amount === amount ? 'border-[#2165FF] bg-[#2165FF] text-white' : 'border-[#DCE5F2] bg-white text-[#0A244C] hover:border-[#4D84FF]'}`} onClick={() => setPartial({ amount })}>
+              <button key={amount} className={`rounded-lg border px-4 py-3 text-sm font-black transition ${config.amount === amount ? 'border-[#2165FF] bg-[#2165FF] text-white' : 'border-[#DCE5F2] bg-white text-[#0A244C] hover:border-[#4D84FF]'}`} onClick={() => { setIsEditingCustomAmount(false); setCustomAmount(''); setPartial({ amount }); }}>
                 {amount}
               </button>
             ))}
-            <input className="rounded-lg border border-[#DCE5F2] px-4 py-3 text-center text-sm font-black text-[#0A244C] outline-none focus:border-[#4D84FF]" min={5} max={150} type="number" value={amountOptions.includes(config.amount) ? '' : config.amount} placeholder="Otro" onChange={(event) => setPartial({ amount: Math.min(150, Math.max(5, Number(event.target.value) || 25)) })} />
+            <input className={`rounded-lg border px-4 py-3 text-center text-sm font-black text-[#0A244C] outline-none focus:border-[#4D84FF] ${customAmount ? 'border-[#2165FF] bg-[#F4F7FF]' : 'border-[#DCE5F2] bg-white'}`} inputMode="numeric" min={5} max={150} type="text" value={customAmount} placeholder="Manual" onFocus={() => setIsEditingCustomAmount(true)} onChange={(event) => updateCustomAmount(event.target.value)} onBlur={() => { if (customAmount) commitCustomAmount(); else setIsEditingCustomAmount(false); }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
           </div>
+          <p className="mt-2 text-xs font-semibold text-[#7A8AA0]">Manual acepta de 5 a 150 preguntas. Puedes escribir 100 sin que se corte.</p>
         </div>
       </div>
     </section>
