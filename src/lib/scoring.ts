@@ -1,5 +1,5 @@
-import type { AnzanConfig, CepreConfig, DrillKind, SessionMetrics, TrainingConfig, UserAnswer } from '../types';
-import { categoryLabels, cepreBlockLabels, levelLabels } from '../types';
+import type { AnzanConfig, CepreConfig, DrillKind, MultiplicationConfig, SessionMetrics, TrainingConfig, TrainingSession, UserAnswer } from '../types';
+import { categoryLabels, cepreBlockLabels, levelLabels, multiplicationTypeLabels } from '../types';
 
 export const formatDuration = (milliseconds: number) => {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -9,12 +9,21 @@ export const formatDuration = (milliseconds: number) => {
   return `${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`;
 };
 
+const clamp = (min: number, max: number, value: number) => Math.max(min, Math.min(max, value));
+
 const levelFromElo = (elo: number) => {
-  if (elo >= 1750) return 'Elite mental';
-  if (elo >= 1520) return 'Avanzado rápido';
-  if (elo >= 1300) return 'Competitivo';
-  if (elo >= 1100) return 'En desarrollo';
-  return 'Base inicial';
+  if (elo >= 2600) return 'Elite mental';
+  if (elo >= 2100) return 'Avanzado';
+  if (elo >= 1600) return 'Competitivo';
+  if (elo >= 1000) return 'En desarrollo';
+  return 'Principiante';
+};
+
+const kFactorFor = (attempts: number) => {
+  if (attempts < 5) return 80;
+  if (attempts < 20) return 48;
+  if (attempts < 50) return 32;
+  return 16;
 };
 
 const levelDifficulty: Record<TrainingConfig['level'], number> = {
@@ -43,6 +52,15 @@ const categoryDifficulty: Record<TrainingConfig['category'], number> = {
   mixed: 1.42,
 };
 
+const multiplicationDifficulty: Record<MultiplicationConfig['multiplicationType'], number> = {
+  oneByOne: 0.85,
+  oneByTwo: 1.08,
+  twoByTwo: 1.46,
+  chain: 1.3,
+  doubleInfinity: 1.18,
+  mixed: 1.36,
+};
+
 const cepreBlockDifficulty: Record<CepreConfig['block'], number> = {
   numbers: 1.12,
   algebra: 1.34,
@@ -53,6 +71,12 @@ const operationDifficulty = (config: TrainingConfig) => {
   const volumeFactor = config.amount >= 100 ? 1.3 : config.amount >= 50 ? 1.16 : 1 + config.amount / 180;
   const modeFactor = config.mode === 'speed' ? 1.12 : config.mode === 'accuracy' ? 1.04 : 1.08;
   return levelDifficulty[config.level] * categoryDifficulty[config.category] * volumeFactor * modeFactor;
+};
+
+const multiplicationSprintDifficulty = (config: MultiplicationConfig) => {
+  const volumeFactor = config.amount >= 100 ? 1.26 : config.amount >= 50 ? 1.14 : 1 + config.amount / 220;
+  const modeFactor = config.mode === 'speed' ? 1.16 : config.mode === 'accuracy' ? 1.04 : 1.1;
+  return levelDifficulty[config.level] * multiplicationDifficulty[config.multiplicationType] * volumeFactor * modeFactor;
 };
 
 const cepreDifficulty = (config: CepreConfig) => {
@@ -69,13 +93,35 @@ const anzanDifficulty = (config: AnzanConfig) => {
   return digitFactor * termFactor * speedFactor * operationFactor;
 };
 
-const capacityFrom = (speedScore: number, accuracy: number, difficulty: number, kind: DrillKind) => {
-  const base = kind === 'flashAnzan' ? 820 : kind === 'cepreExam' ? 800 : 780;
-  const elo = Math.round(base + speedScore * 4.7 + accuracy * 2.15 + difficulty * 155);
+const eloFromHistory = (sessions: TrainingSession[], kind?: DrillKind) => {
+  const source = kind ? sessions.find((session) => session.kind === kind) : sessions[0];
+  if (!source) return 1000;
+  return source.metrics.modeElo ?? source.metrics.generalElo ?? source.metrics.elo ?? 1000;
+};
+
+const eloCapacity = (speedScore: number, accuracy: number, difficulty: number, kind: DrillKind, sessions: TrainingSession[] = []) => {
+  const modeSessions = sessions.filter((session) => session.kind === kind);
+  const kFactor = kFactorFor(modeSessions.length);
+  const generalStart = eloFromHistory(sessions);
+  const modeStart = eloFromHistory(sessions, kind);
+  const difficultyRating = clamp(500, 3500, Math.round(780 + difficulty * 520 + (kind === 'multiplicationSprint' ? 90 : 0)));
+  const performance = clamp(0, 1, (accuracy * 0.68 + speedScore * 0.32) / 100);
+  const expectedGeneral = 1 / (1 + Math.pow(10, (difficultyRating - generalStart) / 400));
+  const expectedMode = 1 / (1 + Math.pow(10, (difficultyRating - modeStart) / 400));
+  const eloDelta = Math.round(kFactor * (performance - expectedGeneral));
+  const modeEloDelta = Math.round(kFactor * (performance - expectedMode));
+  const generalElo = clamp(500, 3500, generalStart + eloDelta);
+  const modeElo = clamp(500, 3500, modeStart + modeEloDelta);
+
   return {
-    elo,
-    levelTag: levelFromElo(elo),
-    streakImpact: Math.max(-30, Math.min(38, Math.round((speedScore - 68) * difficulty * 0.56))),
+    elo: generalElo,
+    generalElo,
+    modeElo,
+    eloDelta,
+    modeEloDelta,
+    kFactor,
+    levelTag: levelFromElo(generalElo),
+    streakImpact: eloDelta,
   };
 };
 
@@ -143,7 +189,7 @@ const baseMetrics = (answers: UserAnswer[], totalTimeMs: number) => {
   return { correct, incorrect, accuracy, averageTimeMs, fastestTimeMs, slowestTimeMs, slowestAnswer };
 };
 
-export const calculateMetrics = (answers: UserAnswer[], totalTimeMs: number, config: TrainingConfig): SessionMetrics => {
+export const calculateMetrics = (answers: UserAnswer[], totalTimeMs: number, config: TrainingConfig, sessions: TrainingSession[] = []): SessionMetrics => {
   const { correct, incorrect, accuracy, averageTimeMs, fastestTimeMs, slowestTimeMs, slowestAnswer } = baseMetrics(answers, totalTimeMs);
   const targetTime = config.mode === 'speed' ? 3800 : config.mode === 'accuracy' ? 8500 : 6000;
   const paceFactor = Math.max(0, 1 - averageTimeMs / (targetTime * 2));
@@ -152,7 +198,7 @@ export const calculateMetrics = (answers: UserAnswer[], totalTimeMs: number, con
   const weakestLabel = categories.weakest || 'Operaciones mixtas';
   const bestLabel = categories.best || 'Sin datos';
   const endurance = enduranceInsight(answers, accuracy);
-  const capacity = capacityFrom(speedScore, accuracy, operationDifficulty(config), 'operations');
+  const capacity = eloCapacity(speedScore, accuracy, operationDifficulty(config), 'operations', sessions);
 
   const focus: string[] = [];
   if (accuracy < 80) focus.push('Prioriza precisión: responde más lento hasta superar 80%.');
@@ -184,7 +230,54 @@ export const calculateMetrics = (answers: UserAnswer[], totalTimeMs: number, con
   };
 };
 
-export const calculateCepreMetrics = (answers: UserAnswer[], totalTimeMs: number, config: CepreConfig): SessionMetrics => {
+export const calculateMultiplicationMetrics = (answers: UserAnswer[], totalTimeMs: number, config: MultiplicationConfig, sessions: TrainingSession[] = []): SessionMetrics => {
+  const { correct, incorrect, accuracy, averageTimeMs, fastestTimeMs, slowestTimeMs, slowestAnswer } = baseMetrics(answers, totalTimeMs);
+  const targetTime = config.mode === 'speed' ? 2600 : config.mode === 'accuracy' ? 5200 : 3600;
+  const paceFactor = Math.max(0, 1 - averageTimeMs / (targetTime * 2));
+  const speedScore = Math.round(accuracy * 0.64 + paceFactor * 100 * 0.36);
+  const categories = categoryRead(answers);
+  const weakestLabel = categories.weakest || multiplicationTypeLabels[config.multiplicationType];
+  const bestLabel = categories.best || 'Sin datos';
+  const endurance = enduranceInsight(answers, accuracy);
+  const capacity = eloCapacity(speedScore, accuracy, multiplicationSprintDifficulty(config), 'multiplicationSprint', sessions);
+
+  const focus: string[] = [];
+  if (accuracy < 85) focus.push('Repite el mismo formato hasta sostener 85% antes de subir dígitos.');
+  if (averageTimeMs > targetTime) focus.push(`Entrena ${weakestLabel} en bloques de 20 buscando bajar 0.3 s por pregunta.`);
+  if (config.multiplicationType === 'doubleInfinity') focus.push('En doble infinito, memoriza acumulados pares y verifica por duplicación inversa.');
+  if (config.multiplicationType === 'chain') focus.push('En encadenadas, agrupa factores fáciles primero: 2x5, 4x25, 8x125.');
+  if (focus.length < 3) focus.push('Alterna 1x1, 1x2 y 2x2 para que la velocidad se transfiera.');
+  if (focus.length < 3) focus.push('Haz una ronda de 100 cuando superes 90% para medir resistencia.');
+
+  const status =
+    accuracy >= 92 && averageTimeMs <= targetTime
+      ? 'Multiplicación automática'
+      : accuracy >= 85
+        ? 'Base rápida en progreso'
+        : 'Memoria de producto inestable';
+
+  return {
+    totalTimeMs,
+    averageTimeMs,
+    fastestTimeMs,
+    slowestTimeMs,
+    correct,
+    incorrect,
+    accuracy,
+    speedScore,
+    recommendation: focus[0],
+    analysis: accuracy >= 90 ? `Buen dominio de ${bestLabel}. Tiempo promedio: ${formatDuration(averageTimeMs)}.` : `El punto débil fue ${weakestLabel}; vuelve a ese formato antes de subir dificultad.`,
+    weakestCategory: weakestLabel,
+    bestCategory: bestLabel,
+    slowestPrompt: slowestAnswer?.prompt ?? '--',
+    improvementFocus: focus.slice(0, 3),
+    status,
+    enduranceInsight: endurance,
+    ...capacity,
+  };
+};
+
+export const calculateCepreMetrics = (answers: UserAnswer[], totalTimeMs: number, config: CepreConfig, sessions: TrainingSession[] = []): SessionMetrics => {
   const { correct, incorrect, accuracy, averageTimeMs, fastestTimeMs, slowestTimeMs, slowestAnswer } = baseMetrics(answers, totalTimeMs);
   const targetTime = config.mode === 'simulation' ? 78000 : 62000;
   const paceFactor = Math.max(0, 1 - averageTimeMs / (targetTime * 1.8));
@@ -193,7 +286,7 @@ export const calculateCepreMetrics = (answers: UserAnswer[], totalTimeMs: number
   const weakestLabel = categories.weakest || cepreBlockLabels[config.block];
   const bestLabel = categories.best || 'Sin datos';
   const endurance = enduranceInsight(answers, accuracy);
-  const capacity = capacityFrom(speedScore, accuracy, cepreDifficulty(config), 'cepreExam');
+  const capacity = eloCapacity(speedScore, accuracy, cepreDifficulty(config), 'cepreExam', sessions);
 
   const focus: string[] = [];
   if (accuracy < 80) focus.push('Baja el ritmo y repara errores antes de subir nivel o volumen.');
@@ -230,7 +323,7 @@ export const calculateCepreMetrics = (answers: UserAnswer[], totalTimeMs: number
   };
 };
 
-export const calculateAnzanMetrics = (answer: UserAnswer, totalTimeMs: number, config: AnzanConfig): SessionMetrics => {
+export const calculateAnzanMetrics = (answer: UserAnswer, totalTimeMs: number, config: AnzanConfig, sessions: TrainingSession[] = []): SessionMetrics => {
   const correct = answer.isCorrect ? 1 : 0;
   const incorrect = answer.isCorrect ? 0 : 1;
   const accuracy = answer.isCorrect ? 100 : 0;
@@ -239,8 +332,7 @@ export const calculateAnzanMetrics = (answer: UserAnswer, totalTimeMs: number, c
   const targetRecall = config.digits * config.terms * 390;
   const paceFactor = Math.max(0, 1 - recallTimeMs / Math.max(1900, targetRecall * 1.75));
   const speedScore = Math.round(accuracy * 0.66 + paceFactor * 100 * 0.34);
-  const difficulty = anzanDifficulty(config);
-  const capacity = capacityFrom(speedScore, accuracy, difficulty, 'flashAnzan');
+  const capacity = eloCapacity(speedScore, accuracy, anzanDifficulty(config), 'flashAnzan', sessions);
   const operationLabel = config.operationMode === 'additionSubtraction' ? 'sumas y restas' : 'sumas';
 
   const improvementFocus = answer.isCorrect

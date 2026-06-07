@@ -1,5 +1,5 @@
-import type { AnzanConfig, Category, CepreConfig, TrainingConfig, TrainingSession, UserAnswer } from '../types';
-import { categoryLabels, cepreBlockLabels, levelLabels } from '../types';
+import type { AnzanConfig, Category, CepreConfig, MultiplicationConfig, TrainingConfig, TrainingSession, UserAnswer } from '../types';
+import { categoryLabels, cepreBlockLabels, levelLabels, multiplicationTypeLabels } from '../types';
 import { formatDuration } from './scoring';
 
 export interface Achievement {
@@ -15,8 +15,8 @@ export interface SuggestedTraining {
   title: string;
   copy: string;
   badge: string;
-  kind: 'operations' | 'flashAnzan' | 'cepreExam';
-  config: Partial<TrainingConfig> | Partial<AnzanConfig> | Partial<CepreConfig>;
+  kind: 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'cepreExam';
+  config: Partial<TrainingConfig> | Partial<AnzanConfig> | Partial<MultiplicationConfig> | Partial<CepreConfig>;
 }
 
 export interface TopicInsight {
@@ -47,9 +47,10 @@ export interface TrainerInsights {
   suggestedTrainings: SuggestedTraining[];
 }
 
-const sessionElo = (session: TrainingSession) => session.metrics.elo ?? Math.round(900 + (session.metrics.speedScore ?? 0) * 5);
+const sessionElo = (session: TrainingSession) => session.metrics.generalElo ?? session.metrics.elo ?? Math.round(900 + (session.metrics.speedScore ?? 0) * 5);
 const isOperationsConfig = (config: TrainingSession['config']): config is TrainingConfig => 'category' in config;
 const isCepreConfig = (config: TrainingSession['config']): config is CepreConfig => 'block' in config;
+const isMultiplicationConfig = (config: TrainingSession['config']): config is MultiplicationConfig => 'multiplicationType' in config;
 const average = (values: number[]) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0);
 const clampPercent = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
@@ -109,6 +110,7 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
   const hasFlash = sessions.some((session) => session.kind === 'flashAnzan');
   const hasHundred = sessions.some((session) => isOperationsConfig(session.config) && session.config.amount >= 100);
   const hasCepre = sessions.some((session) => session.kind === 'cepreExam');
+  const hasMultiplication = sessions.some((session) => session.kind === 'multiplicationSprint');
 
   return [
     {
@@ -117,6 +119,13 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
       description: 'Completa tu primera sesión medida.',
       unlocked: sessions.length >= 1,
       progress: clampPercent((sessions.length / 1) * 100),
+    },
+    {
+      id: 'multiplication',
+      title: 'Multiplicador rápido',
+      description: 'Completa una ronda de multiplicaciones rápidas.',
+      unlocked: hasMultiplication,
+      progress: hasMultiplication ? 100 : 0,
     },
     {
       id: 'resistance',
@@ -135,9 +144,9 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
     {
       id: 'competitive',
       title: 'ELO competitivo',
-      description: 'Supera 1300 de capacidad.',
-      unlocked: bestElo >= 1300,
-      progress: clampPercent((bestElo / 1300) * 100),
+      description: 'Supera 1600 de capacidad.',
+      unlocked: bestElo >= 1600,
+      progress: clampPercent((bestElo / 1600) * 100),
     },
     {
       id: 'streak',
@@ -173,9 +182,17 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
 const buildSuggestedTrainings = (weakTopic: string, averageAccuracy: number, currentElo: number): SuggestedTraining[] => {
   const weakCategory = (Object.entries(categoryLabels).find(([, label]) => label === weakTopic)?.[0] ?? 'mixed') as Category;
   const needsPrecision = averageAccuracy > 0 && averageAccuracy < 82;
-  const baselineLevel: TrainingConfig['level'] = currentElo >= 1550 ? 'level4' : currentElo >= 1300 ? 'level3' : currentElo >= 1100 ? 'level2' : 'level1';
+  const baselineLevel: TrainingConfig['level'] = currentElo >= 2400 ? 'level5' : currentElo >= 2000 ? 'level4' : currentElo >= 1500 ? 'level3' : currentElo >= 1000 ? 'level2' : 'level1';
 
   return [
+    {
+      id: 'multiplication-sprint',
+      title: 'Multiplicaciones rápidas',
+      copy: 'Ronda corta para automatizar productos 1x1, 1x2 y 2x2.',
+      badge: 'Nuevo',
+      kind: 'multiplicationSprint',
+      config: { level: baselineLevel, multiplicationType: 'mixed', amount: 20, mode: 'speed' },
+    },
     {
       id: 'adaptive-focus',
       title: currentElo ? (needsPrecision ? 'Precisión controlada' : `Refuerzo: ${weakTopic}`) : 'Práctica inicial',
@@ -185,27 +202,19 @@ const buildSuggestedTrainings = (weakTopic: string, averageAccuracy: number, cur
       config: { level: currentElo ? baselineLevel : 'level2', category: currentElo ? weakCategory : 'mixed', amount: currentElo ? (needsPrecision ? 20 : 25) : 40, mode: needsPrecision ? 'accuracy' : 'mixed' },
     },
     {
-      id: 'hundred-endurance',
-      title: 'Resistencia 100',
-      copy: '100 preguntas para medir estabilidad.',
-      badge: 'Resistencia',
-      kind: 'operations',
-      config: { level: 'level3', category: 'mixed', amount: 100, mode: 'mixed' },
-    },
-    {
       id: 'flash-memory',
       title: 'Flash Anzan',
       copy: 'Memoria operativa y acumulado mental.',
       badge: 'Memoria',
       kind: 'flashAnzan',
-      config: { digits: currentElo >= 1450 ? 3 : 2, terms: currentElo >= 1450 ? 10 : 8, displayMs: currentElo >= 1450 ? 550 : 750, operationMode: 'additionSubtraction', advanceMode: 'timed', preset: 'custom' },
+      config: { digits: currentElo >= 1800 ? 3 : 2, terms: currentElo >= 1800 ? 10 : 8, displayMs: currentElo >= 1800 ? 550 : 750, operationMode: 'additionSubtraction', advanceMode: 'timed', preset: 'custom' },
     },
   ];
 };
 
 export const analyzeSessions = (sessions: TrainingSession[]): TrainerInsights => {
-  const currentElo = sessions[0] ? sessionElo(sessions[0]) : 0;
-  const bestElo = sessions.length ? Math.max(...sessions.map(sessionElo)) : 0;
+  const currentElo = sessions[0] ? sessionElo(sessions[0]) : 1000;
+  const bestElo = sessions.length ? Math.max(...sessions.map(sessionElo)) : 1000;
   const allAnswers = sessions.flatMap((session) => session.answers);
   const totalQuestions = allAnswers.length;
   const totalErrors = allAnswers.filter((answer) => !answer.isCorrect).length;
@@ -222,7 +231,7 @@ export const analyzeSessions = (sessions: TrainingSession[]): TrainerInsights =>
   const status =
     !sessions.length
       ? 'Sin línea base'
-      : averageAccuracy >= 90 && currentElo >= 1350
+      : averageAccuracy >= 90 && currentElo >= 1600
         ? 'Listo para subir dificultad'
         : averageAccuracy >= 82
           ? 'Buen avance'
@@ -230,7 +239,7 @@ export const analyzeSessions = (sessions: TrainingSession[]): TrainerInsights =>
 
   const risk =
     !sessions.length
-      ? 'Aún no hay historial. Crea una línea base con diagnóstico.'
+      ? 'Aún no hay historial. Crea una línea base con una ronda corta.'
       : averageAccuracy < 80
         ? 'Subir nivel ahora reforzaría errores. Conviene entrenar precisión.'
         : averagePaceMs > 8000
@@ -239,11 +248,11 @@ export const analyzeSessions = (sessions: TrainingSession[]): TrainerInsights =>
 
   const nextObjective =
     !sessions.length
-      ? 'Completar diagnóstico integral'
+      ? 'Completar primera ronda medida'
       : averageAccuracy < 82
         ? 'Recuperar 85% de precisión'
-        : currentElo < 1300
-          ? 'Superar ELO 1300'
+        : currentElo < 1600
+          ? 'Superar ELO 1600'
           : streak < 3
             ? 'Consolidar racha de 3 sesiones'
             : 'Sostener 100 preguntas con 90%+';
@@ -275,6 +284,10 @@ export const displayPace = (milliseconds: number) => (milliseconds ? formatDurat
 export const displaySessionConfig = (session: TrainingSession) => {
   if (session.kind === 'flashAnzan' && 'digits' in session.config) {
     return `${session.config.terms} números · ${session.config.digits} dígitos`;
+  }
+
+  if (session.kind === 'multiplicationSprint' && isMultiplicationConfig(session.config)) {
+    return `${session.config.amount} preguntas · ${multiplicationTypeLabels[session.config.multiplicationType]}`;
   }
 
   if (session.kind === 'cepreExam' && isCepreConfig(session.config)) {

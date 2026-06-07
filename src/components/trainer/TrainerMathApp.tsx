@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Clock3,
   Cloud,
-  Flame,
   Gauge,
   Medal,
   Play,
@@ -22,7 +21,8 @@ import {
 } from 'lucide-react';
 import { generateCepreExercises } from '../../lib/cepreGenerator';
 import { generateExercises, generateFlashAnzanExercise } from '../../lib/exerciseGenerator';
-import { calculateAnzanMetrics, calculateCepreMetrics, calculateMetrics, formatDuration } from '../../lib/scoring';
+import { generateMultiplicationExercises } from '../../lib/multiplicationGenerator';
+import { calculateAnzanMetrics, calculateCepreMetrics, calculateMetrics, calculateMultiplicationMetrics, formatDuration } from '../../lib/scoring';
 import { analyzeSessions, displaySessionConfig } from '../../lib/sessionAnalytics';
 import type { TrainerInsights } from '../../lib/sessionAnalytics';
 import { loadSessions, saveSession, updateSessionSyncStatus } from '../../lib/storage';
@@ -40,6 +40,8 @@ import type {
   DrillKind,
   Exercise,
   Level,
+  MultiplicationConfig,
+  MultiplicationType,
   TrainerProduct,
   TrainingConfig,
   TrainingMode,
@@ -56,6 +58,7 @@ import {
   drillLabels,
   levelLabels,
   modeLabels,
+  multiplicationTypeLabels,
 } from '../../types';
 
 type Screen = 'setup' | 'training' | 'results';
@@ -87,6 +90,14 @@ const defaultCepreConfig: CepreConfig = {
   instantFeedback: true,
 };
 
+const defaultMultiplicationConfig: MultiplicationConfig = {
+  level: 'level2',
+  amount: 30,
+  mode: 'speed',
+  multiplicationType: 'mixed',
+  instantFeedback: true,
+};
+
 const categoryOptions: Category[] = [
   'mixed',
   'addition',
@@ -107,6 +118,7 @@ const categoryOptions: Category[] = [
 
 const cepreBlockOptions: CepreBlock[] = ['mixed', 'numbers', 'algebra'];
 const cepreModeOptions: CepreMode[] = ['diagnostic', 'practice', 'simulation', 'errorReview'];
+const multiplicationTypeOptions: MultiplicationType[] = ['mixed', 'oneByOne', 'oneByTwo', 'twoByTwo', 'chain', 'doubleInfinity'];
 const levelOptions: Level[] = ['level1', 'level2', 'level3', 'level4', 'level5'];
 const modeOptions: TrainingMode[] = ['mixed', 'speed', 'accuracy'];
 const amountOptions = [10, 20, 30, 50, 100];
@@ -121,16 +133,18 @@ const anzanPresets: Record<Exclude<AnzanPreset, 'custom'>, Pick<AnzanConfig, 'di
 };
 
 const productCards: Array<{ id: TrainerProduct; title: string; subtitle: string; icon: ReactNode }> = [
-  { id: 'math', title: 'Operaciones', subtitle: 'Aritmética, álgebra y Flash Anzan', icon: <Calculator size={20} /> },
-  { id: 'cepre', title: 'CEPRE números + álgebra', subtitle: 'Práctica por microtema', icon: <BookOpenCheck size={20} /> },
+  { id: 'math', title: 'Trainer Math 2.0', subtitle: 'Operaciones, multiplicaciones y Flash Anzan', icon: <Calculator size={20} /> },
+  { id: 'cepre', title: 'Entrenador Examen CEPRE', subtitle: 'Números, álgebra y simulación por microtema', icon: <BookOpenCheck size={20} /> },
 ];
 
 const getMetricElo = (metrics: TrainingSession['metrics']) => metrics.elo ?? Math.round(900 + (metrics.speedScore ?? 0) * 5);
 
 const isCepreConfig = (config: TrainingSession['config']): config is CepreConfig => 'block' in config;
+const isMultiplicationConfig = (config: TrainingSession['config']): config is MultiplicationConfig => 'multiplicationType' in config;
 
 const getSessionTitle = (session: TrainingSession) => {
   if (session.kind === 'flashAnzan') return 'Flash Anzan';
+  if (session.kind === 'multiplicationSprint' && isMultiplicationConfig(session.config)) return multiplicationTypeLabels[session.config.multiplicationType];
   if (session.kind === 'cepreExam' && isCepreConfig(session.config)) return cepreBlockLabels[session.config.block];
   if ('category' in session.config) return categoryLabels[session.config.category];
   return 'Entrenamiento';
@@ -142,6 +156,9 @@ const getSessionDetail = (session: TrainingSession) => {
   }
   if (session.kind === 'cepreExam' && isCepreConfig(session.config)) {
     return `${levelLabels[session.config.level]} - ${session.config.amount} preguntas`;
+  }
+  if (session.kind === 'multiplicationSprint' && isMultiplicationConfig(session.config)) {
+    return `${levelLabels[session.config.level]} - ${session.config.amount} multiplicaciones`;
   }
   if ('amount' in session.config) {
     return `${levelLabels[session.config.level]} - ${session.config.amount} preguntas`;
@@ -156,6 +173,9 @@ const buildSessionTips = (session: TrainingSession) => {
   if (session.kind === 'flashAnzan') {
     tips.push('Agrupa números en bloques de 10, 50 o 100; no repitas toda la secuencia desde cero.');
     tips.push('En sumas/restas, separa acumulado positivo y negativo antes de cerrar el resultado.');
+  } else if (session.kind === 'multiplicationSprint') {
+    tips.push('Primero automatiza 1x1 y 1x2; luego pasa a 2x2 y encadenadas.');
+    tips.push('En productos grandes, separa decenas y unidades para evitar carga mental innecesaria.');
   } else {
     tips.push('Antes de operar, nombra el tipo: suma, razón, porcentaje, fracción, serie o ecuación.');
     tips.push('En álgebra, despeja en dos pasos: aislar término y luego dividir o multiplicar.');
@@ -178,6 +198,7 @@ export default function TrainerMathApp() {
   const [config, setConfig] = useState<TrainingConfig>(defaultConfig);
   const [anzanConfig, setAnzanConfig] = useState<AnzanConfig>(defaultAnzanConfig);
   const [cepreConfig, setCepreConfig] = useState<CepreConfig>(defaultCepreConfig);
+  const [multiplicationConfig, setMultiplicationConfig] = useState<MultiplicationConfig>(defaultMultiplicationConfig);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [anzanExercise, setAnzanExercise] = useState<AnzanExercise | null>(null);
@@ -209,7 +230,7 @@ export default function TrainerMathApp() {
     const timer = window.setInterval(() => {
       const now = Date.now();
       setElapsedMs(now - startedAt);
-      if ((activeDrill === 'operations' || activeDrill === 'cepreExam') && questionStartedAt) setQuestionElapsedMs(now - questionStartedAt);
+      if ((activeDrill === 'operations' || activeDrill === 'cepreExam' || activeDrill === 'multiplicationSprint') && questionStartedAt) setQuestionElapsedMs(now - questionStartedAt);
       if (activeDrill === 'flashAnzan' && anzanPhase === 'answer' && answerStartedAt) setQuestionElapsedMs(now - answerStartedAt);
     }, 100);
     return () => window.clearInterval(timer);
@@ -261,6 +282,17 @@ export default function TrainerMathApp() {
     setScreen('training');
   }, [config]);
 
+  const startMultiplication = useCallback((nextConfig = multiplicationConfig) => {
+    const now = Date.now();
+    setProduct('math');
+    setActiveDrill('multiplicationSprint');
+    setMultiplicationConfig(nextConfig);
+    setExercises(generateMultiplicationExercises(nextConfig));
+    setAnzanExercise(null);
+    resetRunState(now);
+    setScreen('training');
+  }, [multiplicationConfig]);
+
   const startCepre = useCallback((nextConfig = cepreConfig) => {
     const now = Date.now();
     setProduct('cepre');
@@ -292,10 +324,23 @@ export default function TrainerMathApp() {
         createdAt: new Date().toISOString(),
         kind: 'cepreExam',
         config: cepreConfig,
-        metrics: calculateCepreMetrics(nextAnswers, totalTimeMs, cepreConfig),
+        metrics: calculateCepreMetrics(nextAnswers, totalTimeMs, cepreConfig, sessions),
         answers: nextAnswers,
       });
       window.setTimeout(() => setScreen('results'), cepreConfig.instantFeedback ? 520 : 180);
+      return;
+    }
+
+    if (activeDrill === 'multiplicationSprint') {
+      persistSession({
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        kind: 'multiplicationSprint',
+        config: multiplicationConfig,
+        metrics: calculateMultiplicationMetrics(nextAnswers, totalTimeMs, multiplicationConfig, sessions),
+        answers: nextAnswers,
+      });
+      window.setTimeout(() => setScreen('results'), multiplicationConfig.instantFeedback ? 520 : 180);
       return;
     }
 
@@ -304,7 +349,7 @@ export default function TrainerMathApp() {
       createdAt: new Date().toISOString(),
       kind: 'operations',
       config,
-      metrics: calculateMetrics(nextAnswers, totalTimeMs, config),
+      metrics: calculateMetrics(nextAnswers, totalTimeMs, config, sessions),
       answers: nextAnswers,
     });
     window.setTimeout(() => setScreen('results'), config.instantFeedback ? 520 : 180);
@@ -343,7 +388,12 @@ export default function TrainerMathApp() {
       return;
     }
 
-    const delay = activeDrill === 'cepreExam' ? (cepreConfig.instantFeedback ? 640 : 160) : config.instantFeedback ? 520 : 160;
+    const delay =
+      activeDrill === 'cepreExam'
+        ? (cepreConfig.instantFeedback ? 640 : 160)
+        : activeDrill === 'multiplicationSprint'
+          ? (multiplicationConfig.instantFeedback ? 520 : 160)
+          : config.instantFeedback ? 520 : 160;
     window.setTimeout(() => {
       setCurrentIndex((value) => value + 1);
       setSelectedKey(null);
@@ -352,7 +402,7 @@ export default function TrainerMathApp() {
       setQuestionStartedAt(Date.now());
       setQuestionElapsedMs(0);
     }, delay);
-  }, [activeDrill, answers, cepreConfig, config, currentExercise, currentIndex, exercises.length, isLocked, questionStartedAt, startedAt]);
+  }, [activeDrill, answers, cepreConfig, config, currentExercise, currentIndex, exercises.length, isLocked, multiplicationConfig, questionStartedAt, sessions, startedAt]);
 
   const moveAnzan = useCallback((direction: 1 | -1) => {
     if (!anzanExercise || anzanPhase !== 'sequence' || anzanConfig.advanceMode !== 'manual') return;
@@ -410,7 +460,7 @@ export default function TrainerMathApp() {
       createdAt: new Date().toISOString(),
       kind: 'flashAnzan',
       config: anzanConfig,
-      metrics: calculateAnzanMetrics(nextAnswer, now - startedAt, anzanConfig),
+      metrics: calculateAnzanMetrics(nextAnswer, now - startedAt, anzanConfig, sessions),
       answers: [nextAnswer],
     });
     setAnswers([nextAnswer]);
@@ -420,7 +470,7 @@ export default function TrainerMathApp() {
     setElapsedMs(now - startedAt);
     setQuestionElapsedMs(now - answerStartedAt);
     window.setTimeout(() => setScreen('results'), anzanConfig.instantFeedback ? 760 : 220);
-  }, [answerStartedAt, anzanConfig, anzanExercise, isLocked, persistSession, startedAt]);
+  }, [answerStartedAt, anzanConfig, anzanExercise, isLocked, persistSession, sessions, startedAt]);
 
   useEffect(() => {
     if (screen !== 'training' || isLocked) return;
@@ -432,7 +482,7 @@ export default function TrainerMathApp() {
       }
       const key = event.key.toUpperCase() as ChoiceKey;
       if (!choiceKeys.includes(key)) return;
-      if ((activeDrill === 'operations' || activeDrill === 'cepreExam') && currentExercise) {
+      if ((activeDrill === 'operations' || activeDrill === 'cepreExam' || activeDrill === 'multiplicationSprint') && currentExercise) {
         const choice = currentExercise.choices.find((item) => item.key === key);
         if (choice) submitChoice(choice);
       }
@@ -468,7 +518,7 @@ export default function TrainerMathApp() {
               <Brain size={20} />
             </div>
             <div>
-              <p className="font-display text-lg font-black">TrainerMath</p>
+              <p className="font-display text-lg font-black">Trainer Math 2.0</p>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#7A8AA0]">by Alejandro Palpan</p>
             </div>
           </div>
@@ -491,14 +541,14 @@ export default function TrainerMathApp() {
               <section className="grid content-start gap-4">
                 {product === 'math' ? (
                   <>
-                    <QuickStartPanel
-                      onStartEndurance={() => startOperations({ ...config, category: 'mixed', amount: 100, mode: 'mixed' })}
-                      onStartAnzan={() => startAnzan()}
-                    />
                     <DrillSwitcher activeDrill={activeDrill} onChange={setActiveDrill} />
-                    {activeDrill === 'operations' ? (
+                    {activeDrill === 'operations' && (
                       <TrainingSetup config={config} onChange={setConfig} onStart={() => startOperations()} />
-                    ) : (
+                    )}
+                    {activeDrill === 'multiplicationSprint' && (
+                      <MultiplicationSetup config={multiplicationConfig} onChange={setMultiplicationConfig} onStart={() => startMultiplication()} />
+                    )}
+                    {activeDrill === 'flashAnzan' && (
                       <AnzanSetup config={anzanConfig} onChange={setAnzanConfig} onStart={() => startAnzan()} />
                     )}
                   </>
@@ -514,10 +564,10 @@ export default function TrainerMathApp() {
           </>
         )}
 
-        {screen === 'training' && (activeDrill === 'operations' || activeDrill === 'cepreExam') && currentExercise && (
+        {screen === 'training' && (activeDrill === 'operations' || activeDrill === 'cepreExam' || activeDrill === 'multiplicationSprint') && currentExercise && (
           <OperationsTraining
             drill={activeDrill}
-            config={activeDrill === 'cepreExam' ? cepreConfig : config}
+            config={activeDrill === 'cepreExam' ? cepreConfig : activeDrill === 'multiplicationSprint' ? multiplicationConfig : config}
             exercise={currentExercise}
             index={currentIndex}
             total={exercises.length}
@@ -556,6 +606,7 @@ export default function TrainerMathApp() {
             session={latestSession}
             onRepeat={() => {
               if (latestSession.kind === 'flashAnzan') startAnzan(latestSession.config as AnzanConfig);
+              else if (latestSession.kind === 'multiplicationSprint') startMultiplication(latestSession.config as MultiplicationConfig);
               else if (latestSession.kind === 'cepreExam') startCepre(latestSession.config as CepreConfig);
               else startOperations(latestSession.config as TrainingConfig);
             }}
@@ -589,48 +640,25 @@ function IntroBar() {
   return (
     <section className="rounded-lg border border-[#DCE5F2] bg-white px-5 py-4 shadow-soft">
       <p className="text-sm font-bold leading-6 text-[#0A244C]">
-        Entrenador rápido de operaciones, álgebra y cálculo mental. Elige un modo, configura la ronda y empieza.
+        Trainer Math 2.0: operaciones, álgebra, multiplicaciones rápidas, Flash Anzan y simulación CEPRE. Elige módulo, nivel y volumen para medir velocidad, precisión y ELO.
       </p>
     </section>
   );
 }
 
-function QuickStartPanel({ onStartEndurance, onStartAnzan }: { onStartEndurance: () => void; onStartAnzan: () => void }) {
-  return (
-    <section className="grid gap-3 sm:grid-cols-2">
-      <button className="group rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF]" onClick={onStartEndurance}>
-        <span className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#F4F7FF] text-[#2165FF] group-hover:bg-[#2165FF] group-hover:text-white"><Flame size={18} /></span>
-          <span>
-            <span className="block font-display text-lg font-black text-[#0A244C]">Resistencia 100</span>
-            <span className="mt-1 block text-sm font-semibold text-[#7A8AA0]">100 preguntas mixtas sin repetir.</span>
-          </span>
-        </span>
-      </button>
-      <button className="group rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF]" onClick={onStartAnzan}>
-        <span className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#F4F7FF] text-[#2165FF] group-hover:bg-[#2165FF] group-hover:text-white"><Brain size={18} /></span>
-          <span>
-            <span className="block font-display text-lg font-black text-[#0A244C]">Flash Anzan</span>
-            <span className="mt-1 block text-sm font-semibold text-[#7A8AA0]">Memoria visual para sumas y restas.</span>
-          </span>
-        </span>
-      </button>
-    </section>
-  );
-}
-
 function DrillSwitcher({ activeDrill, onChange }: { activeDrill: DrillKind; onChange: (drill: DrillKind) => void }) {
-  const drills: DrillKind[] = ['operations', 'flashAnzan'];
+  const drills: DrillKind[] = ['operations', 'multiplicationSprint', 'flashAnzan'];
   return (
     <div className="rounded-lg border border-[#DCE5F2] bg-white p-2 shadow-soft">
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-2 lg:grid-cols-3">
         {drills.map((drill) => (
           <button key={drill} className={`flex min-h-20 items-center gap-4 rounded-lg border px-4 py-3 text-left transition ${activeDrill === drill ? 'border-[#2165FF] bg-[#040F20] text-white' : 'border-[#DCE5F2] bg-[#F4F7FF] text-[#0A244C] hover:border-[#4D84FF]'}`} onClick={() => onChange(drill)}>
-            <span className="grid h-11 w-11 place-items-center rounded-md bg-[#2165FF] text-white">{drill === 'operations' ? <Target size={20} /> : <Brain size={20} />}</span>
+            <span className="grid h-11 w-11 place-items-center rounded-md bg-[#2165FF] text-white">{drill === 'operations' ? <Target size={20} /> : drill === 'multiplicationSprint' ? <Calculator size={20} /> : <Brain size={20} />}</span>
             <span>
               <span className="block font-display text-lg font-black">{drillLabels[drill]}</span>
-              <span className={`text-xs font-bold ${activeDrill === drill ? 'text-[#C7D3E6]' : 'text-[#7A8AA0]'}`}>{drill === 'operations' ? 'Operaciones y álgebra' : 'Sumas y restas rápidas'}</span>
+              <span className={`text-xs font-bold ${activeDrill === drill ? 'text-[#C7D3E6]' : 'text-[#7A8AA0]'}`}>
+                {drill === 'operations' ? 'Aritmética, álgebra y razonamiento' : drill === 'multiplicationSprint' ? '1x1, 1x2, 2x2 y doble infinito' : 'Sumas y restas rápidas'}
+              </span>
             </span>
           </button>
         ))}
@@ -647,6 +675,21 @@ function TrainingSetup({ config, onChange, onStart }: { config: TrainingConfig; 
       <div className="mt-6 grid gap-6">
         <Selector title="Nivel" items={levelOptions} labels={levelLabels} selected={config.level} onSelect={(level) => setPartial({ level })} />
         <Selector title="Bloque / tema" items={categoryOptions} labels={categoryLabels} selected={config.category} onSelect={(category) => setPartial({ category })} grid />
+        <Selector title="Modo" items={modeOptions} labels={modeLabels} selected={config.mode} onSelect={(mode) => setPartial({ mode })} />
+        <AmountSelector value={config.amount} onChange={(amount) => setPartial({ amount })} />
+      </div>
+    </section>
+  );
+}
+
+function MultiplicationSetup({ config, onChange, onStart }: { config: MultiplicationConfig; onChange: (config: MultiplicationConfig) => void; onStart: () => void }) {
+  const setPartial = (partial: Partial<MultiplicationConfig>) => onChange({ ...config, ...partial });
+  return (
+    <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-7">
+      <HeaderBlock eyebrow="Multiplicación Sprint" title="Configura productos rápidos" text="Entrena tablas 1x1, productos 1x2, 2x2, multiplicación encadenada o doble infinito. Marca A/B/C/D por velocidad." action="Iniciar sprint" onAction={onStart} />
+      <div className="mt-6 grid gap-6">
+        <Selector title="Nivel ELO" items={levelOptions} labels={levelLabels} selected={config.level} onSelect={(level) => setPartial({ level })} />
+        <Selector title="Tipo de multiplicación" items={multiplicationTypeOptions} labels={multiplicationTypeLabels} selected={config.multiplicationType} onSelect={(multiplicationType) => setPartial({ multiplicationType })} grid />
         <Selector title="Modo" items={modeOptions} labels={modeLabels} selected={config.mode} onSelect={(mode) => setPartial({ mode })} />
         <AmountSelector value={config.amount} onChange={(amount) => setPartial({ amount })} />
       </div>
@@ -682,7 +725,7 @@ function AmountSelector({ value, onChange }: { value: number; onChange: (amount:
     const rawValue = input.replace(/\D/g, '').slice(0, 3);
     setCustomAmount(rawValue);
     const parsed = Number(rawValue);
-    if (rawValue && parsed >= 5 && parsed <= 150) onChange(parsed);
+    if (rawValue && parsed >= 1 && parsed <= 150) onChange(parsed);
   };
 
   const commit = () => {
@@ -690,7 +733,7 @@ function AmountSelector({ value, onChange }: { value: number; onChange: (amount:
       setIsEditing(false);
       return;
     }
-    const amount = Math.min(150, Math.max(5, Math.round(Number(customAmount) || value)));
+    const amount = Math.min(150, Math.max(1, Math.round(Number(customAmount) || value)));
     setCustomAmount(String(amount));
     setIsEditing(false);
     onChange(amount);
@@ -701,13 +744,13 @@ function AmountSelector({ value, onChange }: { value: number; onChange: (amount:
       <h3 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]">Cantidad de preguntas</h3>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
         {amountOptions.map((amount) => (
-          <button key={amount} className={`rounded-lg border px-4 py-3 text-sm font-black transition ${value === amount && !customAmount ? 'border-[#2165FF] bg-[#2165FF] text-white' : 'border-[#DCE5F2] bg-white text-[#0A244C] hover:border-[#4D84FF]'}`} onClick={() => { setIsEditing(false); setCustomAmount(''); onChange(amount); }}>
+          <button key={amount} className={`rounded-lg border px-4 py-3 text-sm font-black transition ${value === amount && !isEditing && !customAmount ? 'border-[#2165FF] bg-[#2165FF] text-white' : 'border-[#DCE5F2] bg-white text-[#0A244C] hover:border-[#4D84FF]'}`} onClick={() => { setIsEditing(false); setCustomAmount(''); onChange(amount); }}>
             {amount}
           </button>
         ))}
         <input className={`rounded-lg border px-4 py-3 text-center text-sm font-black text-[#0A244C] outline-none focus:border-[#4D84FF] ${customAmount ? 'border-[#2165FF] bg-[#F4F7FF]' : 'border-[#DCE5F2] bg-white'}`} inputMode="numeric" min={5} max={150} type="text" value={customAmount} placeholder="Manual" onFocus={() => setIsEditing(true)} onChange={(event) => updateCustomAmount(event.target.value)} onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
       </div>
-      <p className="mt-2 text-xs font-semibold text-[#7A8AA0]">Manual acepta de 5 a 150 preguntas. La opción 100 queda disponible como preset.</p>
+      <p className="mt-2 text-xs font-semibold text-[#7A8AA0]">Manual acepta de 1 a 150 preguntas. La opción 100 queda disponible como preset.</p>
     </div>
   );
 }
@@ -746,7 +789,7 @@ function AnzanSetup({ config, onChange, onStart }: { config: AnzanConfig; onChan
 
 function OperationsTraining(props: {
   drill: DrillKind;
-  config: TrainingConfig | CepreConfig;
+  config: TrainingConfig | CepreConfig | MultiplicationConfig;
   exercise: Exercise;
   index: number;
   total: number;
@@ -765,6 +808,8 @@ function OperationsTraining(props: {
   const mode = 'mode' in props.config ? props.config.mode : 'mixed';
   const label = props.drill === 'cepreExam'
     ? `${props.exercise.topic || 'CEPRE'} · ${props.exercise.microtopic || cepreBlockLabels[props.exercise.block || 'mixed']}`
+    : props.drill === 'multiplicationSprint'
+      ? `${props.exercise.topic || 'Multiplicación'} · ${levelLabels[level]}`
     : `${categoryLabels[props.exercise.category]} · ${levelLabels[level]}`;
   const modeLabel = props.drill === 'cepreExam' ? cepreModeLabels[(mode as CepreMode)] : modeLabels[(mode as TrainingMode)];
 
@@ -857,19 +902,23 @@ function ChoiceButton({ choice, selectedKey, isLocked, onSelect }: { choice: Ans
 
 function ResultsScreen({ session, onRepeat, onSetup }: { session: TrainingSession; onRepeat: () => void; onSetup: () => void }) {
   const { metrics } = session;
+  const generalElo = metrics.generalElo ?? getMetricElo(metrics);
+  const modeElo = metrics.modeElo ?? getMetricElo(metrics);
+  const eloDelta = metrics.eloDelta ?? metrics.streakImpact ?? 0;
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
       <div className="rounded-lg border border-[#0A244C] bg-[#040F20] p-6 text-white shadow-[0_24px_70px_rgba(4,15,32,0.22)] sm:p-8">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">Reporte de estatus</p>
         <h2 className="font-display mt-2 text-4xl font-black tracking-tight sm:text-6xl">{metrics.levelTag}</h2>
         <p className="mt-4 max-w-3xl text-base leading-7 text-[#C7D3E6]">{metrics.analysis}</p>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          <ResultMetric label="ELO" value={getMetricElo(metrics).toString()} />
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+          <ResultMetric label="ELO general" value={generalElo.toString()} />
+          <ResultMetric label="ELO modo" value={modeElo.toString()} />
+          <ResultMetric label="Delta" value={`${eloDelta >= 0 ? '+' : ''}${eloDelta}`} tone={eloDelta >= 0 ? 'green' : 'rose'} />
           <ResultMetric label="Score" value={metrics.speedScore.toString()} />
           <ResultMetric label="Total" value={formatDuration(metrics.totalTimeMs)} />
           <ResultMetric label="Prom." value={formatDuration(metrics.averageTimeMs)} />
           <ResultMetric label="Precisión" value={`${metrics.accuracy}%`} tone="green" />
-          <ResultMetric label="Errores" value={metrics.incorrect.toString()} tone="rose" />
         </div>
         <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.06] p-4">
           <p className="text-sm font-black text-white">Plan de mejora</p>
@@ -891,7 +940,8 @@ function ResultsScreen({ session, onRepeat, onSetup }: { session: TrainingSessio
           ['Configuración', getSessionDetail(session)],
           ['Estado', metrics.status],
           ['Sheets', session.syncStatus === 'synced' ? 'Enviado' : 'Pendiente'],
-          ['Racha ELO', `${metrics.streakImpact >= 0 ? '+' : ''}${metrics.streakImpact}`],
+          ['K de ajuste', String(metrics.kFactor ?? '--')],
+          ['Racha ELO', `${eloDelta >= 0 ? '+' : ''}${eloDelta}`],
           ['Foco débil', metrics.weakestCategory],
           ['Mejor área', metrics.bestCategory],
           ['Resistencia', metrics.enduranceInsight],

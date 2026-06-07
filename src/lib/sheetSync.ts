@@ -1,5 +1,5 @@
 import type { TrainingSession } from '../types';
-import { categoryLabels, cepreBlockLabels } from '../types';
+import { categoryLabels, cepreBlockLabels, multiplicationTypeLabels } from '../types';
 
 export const TARGET_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1FT7gKsw5UKavMafbbtJaRianQi-Lj529Nfecq9IbVcI/edit?gid=0#gid=0';
 export const TARGET_SHEET_ID = '1FT7gKsw5UKavMafbbtJaRianQi-Lj529Nfecq9IbVcI';
@@ -70,8 +70,10 @@ const isAllowedSheetPayload = (payload: SheetPayload) => {
   const blockOrCategory = payload.session.block_or_category;
   const hasAllowedSession =
     payload.session.kind === 'flashAnzan'
+    || payload.session.kind === 'multiplicationSprint'
     || blockOrCategory in categoryLabels
-    || blockOrCategory in cepreBlockLabels;
+    || blockOrCategory in cepreBlockLabels
+    || blockOrCategory in multiplicationTypeLabels;
 
   return (
     hasAllowedSession
@@ -98,8 +100,8 @@ const configValue = (session: TrainingSession, field: string) => {
 };
 
 export const buildSheetPayload = (session: TrainingSession): SheetPayload => {
-  const trainer = session.kind === 'cepreExam' ? 'Entrenador Examen CEPRE' : session.kind === 'flashAnzan' ? 'Flash Anzan' : 'TrainerMath';
-  const blockOrCategory = configValue(session, 'block') || configValue(session, 'category') || 'flashAnzan';
+  const trainer = session.kind === 'cepreExam' ? 'Entrenador Examen CEPRE' : session.kind === 'flashAnzan' ? 'Flash Anzan' : session.kind === 'multiplicationSprint' ? 'Multiplicaciones rápidas' : 'Trainer Math 2.0';
+  const blockOrCategory = configValue(session, 'block') || configValue(session, 'category') || configValue(session, 'multiplicationType') || 'flashAnzan';
   const amount = configValue(session, 'amount') || configValue(session, 'terms') || 1;
 
   return {
@@ -129,7 +131,7 @@ export const buildSheetPayload = (session: TrainingSession): SheetPayload => {
     answers: session.answers.map((answer, index) => ({
       session_id: session.id,
       question_index: index + 1,
-      trainer: answer.trainer === 'cepre' ? 'Entrenador Examen CEPRE' : answer.trainer === 'math' ? 'TrainerMath' : trainer,
+      trainer: answer.trainer === 'cepre' ? 'Entrenador Examen CEPRE' : answer.trainer === 'math' ? trainer : trainer,
       category: answer.category,
       block: answer.block || '',
       topic: answer.topic || '',

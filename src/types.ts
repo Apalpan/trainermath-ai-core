@@ -20,16 +20,13 @@ export type Category =
 export type TrainingMode = 'accuracy' | 'speed' | 'mixed';
 export type ChoiceKey = 'A' | 'B' | 'C' | 'D';
 export type TrainerProduct = 'math' | 'cepre';
-export type DrillKind = 'operations' | 'flashAnzan' | 'cepreExam';
+export type DrillKind = 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'cepreExam';
 export type AnzanOperationMode = 'addition' | 'additionSubtraction';
 export type AnzanAdvanceMode = 'timed' | 'manual';
 export type AnzanPreset = 'easy' | 'medium' | 'hard' | 'expert' | 'custom';
+export type MultiplicationType = 'oneByOne' | 'oneByTwo' | 'twoByTwo' | 'chain' | 'doubleInfinity' | 'mixed';
 
-export type CepreBlock =
-  | 'numbers'
-  | 'algebra'
-  | 'mixed';
-
+export type CepreBlock = 'numbers' | 'algebra' | 'mixed';
 export type CepreMode = 'diagnostic' | 'practice' | 'simulation' | 'errorReview';
 export type CepreQuestionType = 'calculo' | 'problema' | 'simulacro';
 export type ErrorType = 'calculo' | 'signo' | 'formula' | 'planteamiento' | 'tiempo' | 'ninguno';
@@ -51,6 +48,14 @@ export interface AnzanConfig {
   advanceMode: AnzanAdvanceMode;
   instantFeedback: boolean;
   preset: AnzanPreset;
+}
+
+export interface MultiplicationConfig {
+  level: Level;
+  amount: number;
+  mode: TrainingMode;
+  multiplicationType: MultiplicationType;
+  instantFeedback: boolean;
 }
 
 export interface CepreConfig {
@@ -137,6 +142,11 @@ export interface SessionMetrics {
   slowestPrompt: string;
   improvementFocus: string[];
   elo: number;
+  generalElo?: number;
+  modeElo?: number;
+  eloDelta?: number;
+  modeEloDelta?: number;
+  kFactor?: number;
   levelTag: string;
   streakImpact: number;
   bestCategory: string;
@@ -148,7 +158,7 @@ export interface TrainingSession {
   id: string;
   createdAt: string;
   kind: DrillKind;
-  config: TrainingConfig | AnzanConfig | CepreConfig;
+  config: TrainingConfig | AnzanConfig | MultiplicationConfig | CepreConfig;
   metrics: SessionMetrics;
   answers: UserAnswer[];
   syncStatus?: SyncStatus;
@@ -187,9 +197,19 @@ export const modeLabels: Record<TrainingMode, string> = {
 };
 
 export const drillLabels: Record<DrillKind, string> = {
-  operations: 'Entrenamiento matemático',
+  operations: 'Operaciones diversas',
   flashAnzan: 'Flash Anzan',
+  multiplicationSprint: 'Multiplicaciones rápidas',
   cepreExam: 'Entrenador Examen CEPRE',
+};
+
+export const multiplicationTypeLabels: Record<MultiplicationType, string> = {
+  oneByOne: '1 x 1',
+  oneByTwo: '1 x 2',
+  twoByTwo: '2 x 2',
+  chain: 'Multiplicación encadenada',
+  doubleInfinity: 'Doble infinito',
+  mixed: 'Mixto',
 };
 
 export const anzanOperationLabels: Record<AnzanOperationMode, string> = {

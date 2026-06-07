@@ -1,5 +1,5 @@
 import type { TrainingSession, UserAnswer } from '../types';
-import { categoryLabels, cepreBlockLabels } from '../types';
+import { categoryLabels, cepreBlockLabels, multiplicationTypeLabels } from '../types';
 
 const STORAGE_KEY = 'math-sprint-coach:sessions';
 
@@ -9,6 +9,7 @@ const hasAllowedConfig = (session: TrainingSession) => {
   const config = session.config as unknown;
   if (!isRecord(config)) return false;
   if (session.kind === 'flashAnzan') return typeof config.terms === 'number' && typeof config.digits === 'number';
+  if (session.kind === 'multiplicationSprint') return typeof config.multiplicationType === 'string' && config.multiplicationType in multiplicationTypeLabels;
   if ('category' in config) return typeof config.category === 'string' && config.category in categoryLabels;
   if ('block' in config) return typeof config.block === 'string' && config.block in cepreBlockLabels;
   return false;
