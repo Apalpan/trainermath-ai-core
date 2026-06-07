@@ -1,4 +1,5 @@
 import type { TrainingSession } from '../types';
+import { categoryLabels, cepreBlockLabels } from '../types';
 
 export const TARGET_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1FT7gKsw5UKavMafbbtJaRianQi-Lj529Nfecq9IbVcI/edit?gid=0#gid=0';
 export const TARGET_SHEET_ID = '1FT7gKsw5UKavMafbbtJaRianQi-Lj529Nfecq9IbVcI';
@@ -63,6 +64,31 @@ const safeRead = <T>(key: string, fallback: T): T => {
 
 const safeWrite = (key: string, value: unknown) => {
   localStorage.setItem(key, JSON.stringify(value));
+};
+
+const isAllowedSheetPayload = (payload: SheetPayload) => {
+  const blockOrCategory = payload.session.block_or_category;
+  const hasAllowedSession =
+    payload.session.kind === 'flashAnzan'
+    || blockOrCategory in categoryLabels
+    || blockOrCategory in cepreBlockLabels;
+
+  return (
+    hasAllowedSession
+    && payload.answers.every((answer) => (
+      answer.category in categoryLabels
+      && (!answer.block || answer.block in cepreBlockLabels)
+      && answer.question_type !== 'lectura'
+      && answer.error_type !== 'lectura'
+    ))
+  );
+};
+
+const readQueue = () => {
+  const queue = safeRead<SheetPayload[]>(QUEUE_KEY, []);
+  const cleanQueue = queue.filter(isAllowedSheetPayload);
+  if (cleanQueue.length !== queue.length) safeWrite(QUEUE_KEY, cleanQueue);
+  return cleanQueue;
 };
 
 const configValue = (session: TrainingSession, field: string) => {
@@ -131,10 +157,10 @@ export const setSheetEndpoint = (endpoint: string) => {
   localStorage.setItem(ENDPOINT_KEY, endpoint.trim());
 };
 
-export const getPendingSyncCount = () => safeRead<SheetPayload[]>(QUEUE_KEY, []).length;
+export const getPendingSyncCount = () => readQueue().length;
 
 export const queueSheetSync = (session: TrainingSession) => {
-  const queue = safeRead<SheetPayload[]>(QUEUE_KEY, []);
+  const queue = readQueue();
   const payload = buildSheetPayload(session);
   if (!queue.some((item) => item.session.session_id === payload.session.session_id)) {
     queue.push(payload);
@@ -145,7 +171,7 @@ export const queueSheetSync = (session: TrainingSession) => {
 
 export const flushSheetSync = async () => {
   const endpoint = getSheetEndpoint();
-  const queue = safeRead<SheetPayload[]>(QUEUE_KEY, []);
+  const queue = readQueue();
   if (!endpoint || queue.length === 0) {
     return { sent: 0, pending: queue.length, configured: Boolean(endpoint) };
   }

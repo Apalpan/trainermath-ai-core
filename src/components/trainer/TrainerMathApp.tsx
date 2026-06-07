@@ -110,15 +110,9 @@ const categoryOptions: Category[] = [
   'powers',
   'roots',
   'series',
-  'geometry',
-  'trigonometry',
-  'statistics',
-  'probability',
-  'combinatorics',
-  'reasoning',
 ];
 
-const cepreBlockOptions: CepreBlock[] = ['mixed', 'numbers', 'algebra', 'geometry', 'readingComprehension', 'readingInterpretive', 'readingCritical'];
+const cepreBlockOptions: CepreBlock[] = ['mixed', 'numbers', 'algebra'];
 const cepreModeOptions: CepreMode[] = ['diagnostic', 'practice', 'simulation', 'errorReview'];
 const levelOptions: Level[] = ['level1', 'level2', 'level3', 'level4', 'level5'];
 const modeOptions: TrainingMode[] = ['mixed', 'speed', 'accuracy'];
@@ -135,23 +129,23 @@ const anzanPresets: Record<Exclude<AnzanPreset, 'custom'>, Pick<AnzanConfig, 'di
 
 const productCards: Array<{ id: TrainerProduct; title: string; subtitle: string; icon: ReactNode }> = [
   { id: 'math', title: 'TrainerMath', subtitle: 'Cálculo mental, Flash Anzan y resistencia', icon: <Calculator size={20} /> },
-  { id: 'cepre', title: 'Entrenador Examen CEPRE', subtitle: 'Matemática + lectura con reporte por microtema', icon: <BookOpenCheck size={20} /> },
+  { id: 'cepre', title: 'Entrenador Examen CEPRE', subtitle: 'Números, operaciones y álgebra por microtema', icon: <BookOpenCheck size={20} /> },
 ];
 
 const capabilities = [
   { title: 'Cálculo mental', text: 'Automatiza operaciones base para no perder tiempo operativo.' },
-  { title: 'Patrones rápidos', text: 'Clasifica si es porcentaje, razón, ecuación, geometría o probabilidad.' },
+  { title: 'Patrones rápidos', text: 'Clasifica si es porcentaje, razón, fracción, serie o ecuación.' },
   { title: 'Traducción algebraica', text: 'Convierte texto en ecuación antes de operar.' },
-  { title: 'Lectura activa', text: 'Ubica tesis, evidencia, inferencia y falacia antes de marcar.' },
+  { title: 'Control numérico', text: 'Evita errores de signo, jerarquía y simplificación.' },
   { title: 'Presión y control', text: 'Mide fatiga, velocidad y errores bajo cronómetro.' },
 ];
 
 const weeklyPlan = [
   'Lunes: números, fracciones, porcentajes, razones y MCD/MCM.',
   'Martes: álgebra operativa, exponentes, productos notables y ecuaciones.',
-  'Miércoles: lectura comprensiva e interpretativa.',
-  'Jueves: geometría, ángulos, triángulos, áreas y semejanza.',
-  'Viernes: lectura crítica, tesis, argumento y falacias.',
+  'Miércoles: operaciones combinadas, potencias, raíces y series.',
+  'Jueves: problemas de números, porcentajes y regla de tres.',
+  'Viernes: álgebra aplicada, sistemas y polinomios.',
   'Sábado: simulacro mixto de 50 a 100 preguntas.',
   'Domingo: reparación de errores y repetición de fallas.',
 ];
@@ -178,6 +172,28 @@ const getSessionDetail = (session: TrainingSession) => {
     return `${levelLabels[session.config.level]} - ${session.config.amount} preguntas`;
   }
   return 'Sesión';
+};
+
+const buildSessionTips = (session: TrainingSession) => {
+  const { metrics } = session;
+  const tips: string[] = [];
+
+  if (session.kind === 'flashAnzan') {
+    tips.push('Agrupa números en bloques de 10, 50 o 100; no repitas toda la secuencia desde cero.');
+    tips.push('En sumas/restas, separa acumulado positivo y negativo antes de cerrar el resultado.');
+  } else {
+    tips.push('Antes de operar, nombra el tipo: suma, razón, porcentaje, fracción, serie o ecuación.');
+    tips.push('En álgebra, despeja en dos pasos: aislar término y luego dividir o multiplicar.');
+  }
+
+  if (metrics.accuracy < 80) tips.push('Criterio: no subas nivel hasta sostener 85% de precisión en dos rondas seguidas.');
+  else tips.push('Criterio: si mantienes 90%+, sube dificultad o aumenta volumen antes de buscar más velocidad.');
+
+  if (metrics.averageTimeMs > 7000) tips.push('Truco: reduce escritura mental; calcula primero la estructura y luego los números.');
+  else tips.push('Truco: usa verificación inversa rápida para evitar errores por exceso de velocidad.');
+
+  tips.push(`Frase de control: precisión primero, velocidad después, resistencia al final.`);
+  return tips.slice(0, 5);
 };
 
 export default function TrainerMathApp() {
@@ -336,7 +352,7 @@ export default function TrainerMathApp() {
       microtopic: currentExercise.microtopic,
       questionType: currentExercise.questionType,
       explanation: currentExercise.explanation,
-      errorType: choice.isCorrect ? 'ninguno' : currentExercise.expectedError || (currentExercise.questionType === 'lectura' ? 'lectura' : 'calculo'),
+      errorType: choice.isCorrect ? 'ninguno' : currentExercise.expectedError || 'calculo',
     };
     const nextAnswers = [...answers, nextAnswer];
     const isLast = currentIndex + 1 >= exercises.length;
@@ -504,7 +520,6 @@ export default function TrainerMathApp() {
           <>
             <Hero insights={insights} product={product} onStart={() => startSuggested(insights.suggestedTrainings[0])} onCepre={() => startCepre({ ...cepreConfig, block: 'mixed', amount: 30 })} />
             <ProductSwitcher product={product} onChange={(next) => { setProduct(next); setActiveDrill(next === 'cepre' ? 'cepreExam' : 'operations'); }} />
-            <ProgressDashboard insights={insights} onStartRoute={startSuggested} />
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
               <section className="grid content-start gap-4">
@@ -526,13 +541,14 @@ export default function TrainerMathApp() {
                 )}
               </section>
               <aside className="grid content-start gap-4">
-                <SheetSyncPanel endpoint={sheetEndpoint} pending={syncPending} message={syncMessage} onEndpointChange={setSheetEndpointState} onSave={saveEndpointAndFlush} />
+                <ProgressDashboard insights={insights} onStartRoute={startSuggested} compact />
                 <AchievementsPanel achievements={insights.achievements} />
                 <LeaderboardPanel sessions={insights.leaderboard} />
-                <CapabilityPanel />
                 <HistoryPanel sessions={sessions} onClear={() => { clearSessions(); setSessions([]); }} />
               </aside>
             </div>
+            <CapabilityPanel />
+            <SheetSyncPanel endpoint={sheetEndpoint} pending={syncPending} message={syncMessage} onEndpointChange={setSheetEndpointState} onSave={saveEndpointAndFlush} />
           </>
         )}
 
@@ -596,20 +612,20 @@ function Hero({ insights, product, onStart, onCepre }: { insights: TrainerInsigh
       <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
         <div>
           <p className="mb-4 inline-flex rounded-md border border-[#2165FF]/35 bg-[#2165FF]/10 px-3 py-2 text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">
-            Leer - clasificar - traducir - operar - verificar
+            Clasificar - operar - despejar - verificar
           </p>
           <h1 className="font-display max-w-4xl text-4xl font-black leading-[0.98] tracking-tight sm:text-6xl">
-            TrainerMath 2.0 para velocidad, precisión y examen
+            TrainerMath 2.0 para operaciones rápidas y álgebra
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-[#C7D3E6]">
-            Dos entrenadores en una plataforma: cálculo mental con Flash Anzan y preparación tipo examen CEPRE con matemática, lectura, ELO, reporte y registro en Sheets.
+            Dos entrenadores en una plataforma: cálculo mental con Flash Anzan y preparación tipo examen con números, operaciones, álgebra, ELO, reporte y registro en Sheets.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-5 py-3 text-sm font-black text-white transition hover:bg-[#4D84FF]" onClick={onStart}>
               <Play size={18} /> Ruta recomendada
             </button>
             <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 px-5 py-3 text-sm font-black text-white transition hover:border-[#4D84FF]" onClick={onCepre}>
-              Diagnóstico CEPRE <ChevronRight size={18} />
+              Diagnóstico números + álgebra <ChevronRight size={18} />
             </button>
           </div>
         </div>
@@ -662,8 +678,25 @@ function ProductSwitcher({ product, onChange }: { product: TrainerProduct; onCha
   );
 }
 
-function ProgressDashboard({ insights, onStartRoute }: { insights: TrainerInsights; onStartRoute: (route: SuggestedTraining) => void }) {
+function ProgressDashboard({ insights, onStartRoute, compact = false }: { insights: TrainerInsights; onStartRoute: (route: SuggestedTraining) => void; compact?: boolean }) {
   const unlocked = insights.achievements.filter((achievement) => achievement.unlocked).length;
+
+  if (compact) {
+    return (
+      <section className="rounded-lg border border-[#0A244C] bg-[#040F20] p-5 text-white shadow-soft">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">Estado</p>
+        <h2 className="font-display mt-1 text-2xl font-black">{insights.status}</h2>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <MetricPill label="ELO" value={insights.currentElo ? insights.currentElo.toString() : '--'} />
+          <MetricPill label="Precisión" value={insights.averageAccuracy ? `${insights.averageAccuracy}%` : '--'} />
+        </div>
+        <button className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-4 py-3 text-sm font-black text-white transition hover:bg-[#4D84FF]" onClick={() => onStartRoute(insights.suggestedTrainings[0])}>
+          <Zap size={18} /> Ruta sugerida
+        </button>
+        <p className="mt-3 text-xs leading-5 text-[#C7D3E6]">{insights.risk}</p>
+      </section>
+    );
+  }
 
   return (
     <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
@@ -775,10 +808,10 @@ function SuggestedRoutes({ routes, onStartRoute }: { routes: SuggestedTraining[]
 
 function CepreRoutes({ onStart }: { onStart: (config: CepreConfig) => void }) {
   const routes: Array<{ title: string; text: string; config: CepreConfig; badge: string }> = [
-    { title: 'Diagnóstico mixto', text: 'Matemática y lectura para detectar bloque débil.', badge: 'Base real', config: { ...defaultCepreConfig, block: 'mixed', amount: 30, mode: 'diagnostic' } },
-    { title: 'Álgebra intensiva', text: 'Ecuaciones, sistemas, productos notables y polinomios.', badge: 'Matemática', config: { ...defaultCepreConfig, block: 'algebra', amount: 20, mode: 'practice' } },
-    { title: 'Lectura crítica', text: 'Tesis, argumento, inferencia y falacias.', badge: 'Lectura', config: { ...defaultCepreConfig, block: 'readingCritical', amount: 20, mode: 'practice' } },
-    { title: 'Simulacro 100', text: 'Volumen largo para resistencia y fatiga.', badge: 'Resistencia', config: { ...defaultCepreConfig, block: 'mixed', amount: 100, mode: 'simulation', level: 'level3' } },
+    { title: 'Diagnóstico numérico', text: 'Números, operaciones y álgebra para detectar el bloque débil.', badge: 'Base real', config: { ...defaultCepreConfig, block: 'mixed', amount: 30, mode: 'diagnostic' } },
+    { title: 'Operaciones foco', text: 'Fracciones, porcentajes, MCM, razones, promedios y series.', badge: 'Números', config: { ...defaultCepreConfig, block: 'numbers', amount: 20, mode: 'practice' } },
+    { title: 'Álgebra intensiva', text: 'Ecuaciones, sistemas, productos notables y polinomios.', badge: 'Álgebra', config: { ...defaultCepreConfig, block: 'algebra', amount: 20, mode: 'practice' } },
+    { title: 'Simulacro 100', text: 'Volumen largo para medir resistencia sin cambiar de temario.', badge: 'Resistencia', config: { ...defaultCepreConfig, block: 'mixed', amount: 100, mode: 'simulation', level: 'level3' } },
   ];
 
   return (
@@ -813,7 +846,7 @@ function CepreSetup({ config, onChange, onStart }: { config: CepreConfig; onChan
   const setPartial = (partial: Partial<CepreConfig>) => onChange({ ...config, ...partial });
   return (
     <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-7">
-      <HeaderBlock eyebrow="Exam trainer" title="Configura Examen CEPRE" text="Entrena matemática y lectura como bloques separados. Cada pregunta guarda microtema, tiempo, error y explicación." action="Iniciar examen" onAction={onStart} />
+      <HeaderBlock eyebrow="Exam trainer" title="Configura Examen CEPRE" text="Entrena solo números, operaciones y álgebra. Cada pregunta guarda microtema, tiempo, error y explicación." action="Iniciar examen" onAction={onStart} />
       <div className="mt-6 grid gap-6">
         <Selector title="Bloque" items={cepreBlockOptions} labels={cepreBlockLabels} selected={config.block} onSelect={(block) => setPartial({ block })} grid />
         <Selector title="Nivel" items={levelOptions} labels={levelLabels} selected={config.level} onSelect={(level) => setPartial({ level })} />
@@ -1034,13 +1067,14 @@ function ResultsScreen({ session, onRepeat, onSetup }: { session: TrainingSessio
             ))}
           </ul>
         </div>
+        <TipsPanel tips={buildSessionTips(session)} />
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-5 py-3 text-sm font-black text-white" onClick={onRepeat}><Play size={18} />Repetir</button>
           <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 px-5 py-3 text-sm font-black text-white" onClick={onSetup}><RotateCcw size={18} />Configurar</button>
         </div>
       </div>
       <div className="grid gap-4">
-        <InfoCard title="Lectura operativa" items={[
+        <InfoCard title="Análisis operativo" items={[
           ['Entrenamiento', getSessionTitle(session)],
           ['Configuración', getSessionDetail(session)],
           ['Estado', metrics.status],
@@ -1056,29 +1090,60 @@ function ResultsScreen({ session, onRepeat, onSetup }: { session: TrainingSessio
   );
 }
 
+function TipsPanel({ tips }: { tips: string[] }) {
+  return (
+    <div className="mt-4 rounded-lg border border-[#4D84FF]/30 bg-[#2165FF]/10 p-4">
+      <p className="text-sm font-black text-white">Tips y criterios para la siguiente ronda</p>
+      <div className="mt-3 grid gap-2">
+        {tips.map((tip) => (
+          <div key={tip} className="flex gap-2 rounded-md bg-white/[0.06] px-3 py-2 text-sm leading-6 text-[#C7D3E6]">
+            <Sparkles className="mt-1 shrink-0 text-[#8DB1FF]" size={15} />
+            <span>{tip}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SheetSyncPanel({ endpoint, pending, message, onEndpointChange, onSave }: { endpoint: string; pending: number; message: string; onEndpointChange: (endpoint: string) => void; onSave: () => void }) {
   return (
-    <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Sheets sync</p>
-          <h2 className="font-display text-xl font-black">Registro de intentos</h2>
+    <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-6">
+      <details>
+        <summary className="cursor-pointer list-none">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Configuración técnica</p>
+              <h2 className="font-display mt-1 text-2xl font-black text-[#0A244C]">Google Sheets y endpoint</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7A8AA0]">Este apartado solo se usa para conectar el registro automático. El entrenamiento funciona aunque no configures endpoint.</p>
+            </div>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#F4F7FF] text-[#2165FF]"><Cloud size={22} /></span>
+          </div>
+        </summary>
+        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+          <div className="rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Estado de sincronización</p>
+            <p className="mt-2 text-sm leading-6 text-[#7A8AA0]">{message}</p>
+            <div className="mt-4 rounded-lg bg-white p-3">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Intentos pendientes</p>
+              <p className="font-display text-3xl font-black text-[#0A244C]">{pending}</p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-[#DCE5F2] bg-white p-4">
+            <label className="block">
+              <span className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Endpoint Apps Script</span>
+              <input className="mt-2 w-full rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] px-3 py-3 text-sm font-semibold text-[#0A244C] outline-none focus:border-[#2165FF]" placeholder="https://script.google.com/macros/s/.../exec" value={endpoint} onChange={(event) => onEndpointChange(event.target.value)} />
+            </label>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-4 py-3 text-sm font-black text-white" onClick={onSave}>
+                Guardar y sincronizar
+              </button>
+              <a className="inline-flex flex-1 items-center justify-center rounded-lg border border-[#DCE5F2] px-4 py-3 text-sm font-black text-[#2165FF]" href={TARGET_SHEET_URL} target="_blank" rel="noreferrer">Abrir Sheet</a>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-[#7A8AA0]">Pega aquí la URL terminada en <strong>/exec</strong>. Si no existe, los resultados se guardan localmente y quedan en cola.</p>
+          </div>
         </div>
-        <Cloud className="text-[#2165FF]" size={22} />
-      </div>
-      <p className="mt-3 text-sm leading-6 text-[#7A8AA0]">{message}</p>
-      <div className="mt-4 rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-3">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Pendientes</p>
-        <p className="font-display text-3xl font-black text-[#0A244C]">{pending}</p>
-      </div>
-      <label className="mt-4 block">
-        <span className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Endpoint Apps Script</span>
-        <input className="mt-2 w-full rounded-lg border border-[#DCE5F2] bg-white px-3 py-3 text-sm font-semibold text-[#0A244C] outline-none focus:border-[#2165FF]" placeholder="https://script.google.com/macros/s/..." value={endpoint} onChange={(event) => onEndpointChange(event.target.value)} />
-      </label>
-      <button className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-4 py-3 text-sm font-black text-white" onClick={onSave}>
-        Guardar y sincronizar
-      </button>
-      <a className="mt-3 block text-xs font-black uppercase tracking-[0.12em] text-[#2165FF]" href={TARGET_SHEET_URL} target="_blank" rel="noreferrer">Abrir Google Sheet</a>
+      </details>
     </section>
   );
 }
@@ -1250,11 +1315,36 @@ function HeaderBlock({ eyebrow, title, text, action, onAction }: { eyebrow: stri
 }
 
 function NumberConfig({ label, value, min, max, step = 1, suffix, onChange }: { label: string; value: number; min: number; max: number; step?: number; suffix: string; onChange: (value: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const parsed = Number(draft);
+    const fallback = Number.isFinite(parsed) ? parsed : value;
+    const stepped = step === 1 ? Math.round(fallback) : Math.round(fallback / step) * step;
+    const nextValue = Math.min(max, Math.max(min, stepped));
+    setDraft(String(nextValue));
+    onChange(nextValue);
+  };
+
   return (
     <label className="rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-4">
       <span className="text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]">{label}</span>
       <div className="mt-3 flex items-center gap-2">
-        <input className="min-w-0 flex-1 rounded-lg border border-[#DCE5F2] bg-white px-3 py-3 text-lg font-black text-[#0A244C] outline-none" type="number" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Math.min(max, Math.max(min, Number(event.target.value) || min)))} />
+        <input
+          className="min-w-0 flex-1 rounded-lg border border-[#DCE5F2] bg-white px-3 py-3 text-lg font-black text-[#0A244C] outline-none focus:border-[#2165FF]"
+          inputMode="numeric"
+          type="text"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value.replace(/\D/g, '').slice(0, 4))}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+        />
         <span className="text-xs font-black text-[#7A8AA0]">{suffix}</span>
       </div>
     </label>

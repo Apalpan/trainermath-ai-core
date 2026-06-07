@@ -25,12 +25,6 @@ const concreteCategories: Exclude<Category, 'mixed'>[] = [
   'powers',
   'roots',
   'series',
-  'geometry',
-  'trigonometry',
-  'statistics',
-  'probability',
-  'combinatorics',
-  'reasoning',
 ];
 
 const choiceKeys: ChoiceKey[] = ['A', 'B', 'C', 'D'];
@@ -53,8 +47,6 @@ const rangeFor = (level: Level) => {
 
 export const gcd = (a: number, b: number): number => (!b ? Math.abs(a) : gcd(b, a % b));
 const lcm = (a: number, b: number) => Math.abs(a * b) / gcd(a, b);
-const fact = (n: number): number => (n <= 1 ? 1 : n * fact(n - 1));
-const combination = (n: number, k: number) => fact(n) / (fact(k) * fact(n - k));
 
 export const fractionText = (numerator: number, denominator: number) => {
   const divisor = gcd(numerator, denominator);
@@ -258,55 +250,6 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
     const series = Array.from({ length: 4 }, (_, index) => start + step * index);
     const answer = start + step * 4;
     return createExercise(category, `${series.join(', ')}, ?`, answer, String(answer), `La diferencia es ${step}. Siguiente: ${answer}`);
-  }
-
-  if (category === 'geometry') {
-    const template = pick(['triangle', 'pythagoras', 'area'] as const);
-    if (template === 'triangle') {
-      const a = rand(35, 80);
-      const b = rand(35, 80);
-      const answer = 180 - a - b;
-      return createExercise(category, `Triángulo: ángulos ${a}° y ${b}°. Tercer ángulo`, answer, String(answer), `180 - ${a} - ${b} = ${answer}°`);
-    }
-    if (template === 'pythagoras') {
-      const triples = [[3, 4, 5], [5, 12, 13], [6, 8, 10], [8, 15, 17], [7, 24, 25]];
-      const [a, b, c] = pick(triples);
-      return createExercise(category, `Catetos ${a} y ${b}. Hipotenusa`, c, String(c), `${a}² + ${b}² = ${c}²`);
-    }
-    const base = rand(6, 24);
-    const height = rand(4, 18);
-    const answer = (base * height) / 2;
-    return createExercise(category, `Área de triángulo b=${base}, h=${height}`, answer, String(answer), `A = b × h ÷ 2 = ${answer}`);
-  }
-
-  if (category === 'trigonometry') {
-    const data = [
-      { prompt: 'sen 30°', answer: 0.5, label: '1/2' },
-      { prompt: 'cos 60°', answer: 0.5, label: '1/2' },
-      { prompt: 'tan 45°', answer: 1, label: '1' },
-      { prompt: 'sen 90°', answer: 1, label: '1' },
-      { prompt: 'cos 0°', answer: 1, label: '1' },
-    ];
-    const item = pick(data);
-    return createExercise(category, item.prompt, item.answer, item.label, `${item.prompt} = ${item.label}`, numericChoices(item.answer, item.label, 1), [item.label]);
-  }
-
-  if (category === 'statistics') {
-    const values = shuffle([rand(2, 8), rand(9, 14), rand(15, 20), rand(21, 28)]).sort((a, b) => a - b);
-    const answer = (values[1] + values[2]) / 2;
-    return createExercise(category, `Mediana de ${values.join(', ')}`, answer, String(answer), `Promedio de los dos centrales: (${values[1]} + ${values[2]}) ÷ 2 = ${answer}`);
-  }
-
-  if (category === 'probability') {
-    const answer = 0.5;
-    return createExercise(category, 'Probabilidad de obtener par en un dado', answer, '1/2', 'Favorables: 2, 4, 6. P = 3/6 = 1/2', numericChoices(answer, '1/2', 1), ['1/2']);
-  }
-
-  if (category === 'combinatorics') {
-    const n = rand(5, 8);
-    const k = 2;
-    const answer = combination(n, k);
-    return createExercise(category, `Elegir ${k} personas de ${n}`, answer, String(answer), `C(${n},${k}) = ${answer}`);
   }
 
   const price = rand(8, 60);

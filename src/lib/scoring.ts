@@ -40,22 +40,12 @@ const categoryDifficulty: Record<TrainingConfig['category'], number> = {
   divisibility: 1.16,
   averages: 1.12,
   series: 1.16,
-  geometry: 1.32,
-  trigonometry: 1.28,
-  statistics: 1.12,
-  probability: 1.2,
-  combinatorics: 1.3,
-  reasoning: 1.32,
   mixed: 1.42,
 };
 
 const cepreBlockDifficulty: Record<CepreConfig['block'], number> = {
   numbers: 1.12,
   algebra: 1.34,
-  geometry: 1.36,
-  readingComprehension: 1.18,
-  readingInterpretive: 1.26,
-  readingCritical: 1.34,
   mixed: 1.48,
 };
 
@@ -169,7 +159,7 @@ export const calculateMetrics = (answers: UserAnswer[], totalTimeMs: number, con
   if (averageTimeMs > targetTime) focus.push(`Reduce tiempo promedio en ${weakestLabel} con bloques de 10 preguntas.`);
   if (config.amount >= 100) focus.push(endurance);
   if (focus.length < 3) focus.push(`Sube gradualmente desde ${levelLabels[config.level]} cuando logres 90%+.`);
-  if (focus.length < 3) focus.push('Alterna aritmética, álgebra, geometría y razonamiento para mejorar transferencia.');
+  if (focus.length < 3) focus.push('Alterna aritmética, fracciones, porcentajes, series y álgebra para mejorar transferencia.');
 
   const status = accuracy >= 92 && averageTimeMs <= targetTime ? 'Dominio sólido' : accuracy >= 80 ? 'Buen avance con margen de velocidad' : 'Precisión en riesgo';
 
@@ -196,8 +186,7 @@ export const calculateMetrics = (answers: UserAnswer[], totalTimeMs: number, con
 
 export const calculateCepreMetrics = (answers: UserAnswer[], totalTimeMs: number, config: CepreConfig): SessionMetrics => {
   const { correct, incorrect, accuracy, averageTimeMs, fastestTimeMs, slowestTimeMs, slowestAnswer } = baseMetrics(answers, totalTimeMs);
-  const hasReading = config.block.startsWith('reading') || answers.some((answer) => answer.questionType === 'lectura');
-  const targetTime = hasReading ? 95000 : config.mode === 'simulation' ? 78000 : 62000;
+  const targetTime = config.mode === 'simulation' ? 78000 : 62000;
   const paceFactor = Math.max(0, 1 - averageTimeMs / (targetTime * 1.8));
   const speedScore = Math.round(accuracy * 0.72 + paceFactor * 100 * 0.28);
   const categories = categoryRead(answers);
@@ -209,10 +198,9 @@ export const calculateCepreMetrics = (answers: UserAnswer[], totalTimeMs: number
   const focus: string[] = [];
   if (accuracy < 80) focus.push('Baja el ritmo y repara errores antes de subir nivel o volumen.');
   if (weakestLabel) focus.push(`Crea un bloque de 15 preguntas solo de ${weakestLabel}.`);
-  if (hasReading) focus.push('En lectura, subraya tesis, evidencia y conclusión antes de elegir alternativa.');
   if (config.amount >= 50) focus.push(endurance);
-  if (focus.length < 3) focus.push('Alterna números, álgebra, geometría y lectura para simular transferencia real de examen.');
-  if (focus.length < 3) focus.push('Registra cada error por causa: cálculo, signo, fórmula, lectura o planteamiento.');
+  if (focus.length < 3) focus.push('Alterna números, operaciones y álgebra para mejorar transferencia real.');
+  if (focus.length < 3) focus.push('Registra cada error por causa: cálculo, signo, fórmula o planteamiento.');
 
   const status =
     accuracy >= 90 && averageTimeMs <= targetTime
@@ -259,7 +247,7 @@ export const calculateAnzanMetrics = (answer: UserAnswer, totalTimeMs: number, c
     ? [
         `Sube a ${Math.min(config.digits + 1, 5)} dígitos cuando sostengas 3 aciertos seguidos.`,
         config.advanceMode === 'manual' ? 'Pasa a aparición automática para entrenar memoria visual.' : 'Reduce el tiempo de aparición en 100 ms.',
-        'Mantén lectura central y agrupa números en bloques mentales.',
+        'Mantén mirada central y agrupa números en bloques mentales.',
       ]
     : [
         `Repite ${config.terms} términos de ${config.digits} dígito(s) hasta lograr 80% de precisión.`,

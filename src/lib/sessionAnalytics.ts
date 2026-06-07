@@ -109,7 +109,6 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
   const hasFlash = sessions.some((session) => session.kind === 'flashAnzan');
   const hasHundred = sessions.some((session) => isOperationsConfig(session.config) && session.config.amount >= 100);
   const hasCepre = sessions.some((session) => session.kind === 'cepreExam');
-  const hasReading = sessions.some((session) => session.answers.some((answer) => answer.questionType === 'lectura'));
 
   return [
     {
@@ -162,13 +161,6 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
       progress: hasCepre ? 100 : 0,
     },
     {
-      id: 'reading',
-      title: 'Lectura activa',
-      description: 'Resuelve al menos una ronda de lectura.',
-      unlocked: hasReading,
-      progress: hasReading ? 100 : 0,
-    },
-    {
       id: 'volume',
       title: 'Volumen 500',
       description: 'Acumula 500 preguntas entrenadas.',
@@ -195,7 +187,7 @@ const buildSuggestedTrainings = (weakTopic: string, averageAccuracy: number, cur
     {
       id: 'cepre-diagnostic',
       title: 'Diagnóstico examen CEPRE',
-      copy: '30 preguntas mixtas con matemática y lectura para detectar bloque débil.',
+      copy: '30 preguntas de números, operaciones y álgebra para detectar bloque débil.',
       badge: 'Examen',
       kind: 'cepreExam',
       config: { level: baselineLevel, block: 'mixed', amount: 30, mode: 'diagnostic' },

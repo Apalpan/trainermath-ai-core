@@ -15,12 +15,6 @@ export type Category =
   | 'divisibility'
   | 'averages'
   | 'series'
-  | 'geometry'
-  | 'trigonometry'
-  | 'statistics'
-  | 'probability'
-  | 'combinatorics'
-  | 'reasoning'
   | 'mixed';
 
 export type TrainingMode = 'accuracy' | 'speed' | 'mixed';
@@ -34,15 +28,11 @@ export type AnzanPreset = 'easy' | 'medium' | 'hard' | 'expert' | 'custom';
 export type CepreBlock =
   | 'numbers'
   | 'algebra'
-  | 'geometry'
-  | 'readingComprehension'
-  | 'readingInterpretive'
-  | 'readingCritical'
   | 'mixed';
 
 export type CepreMode = 'diagnostic' | 'practice' | 'simulation' | 'errorReview';
-export type CepreQuestionType = 'calculo' | 'problema' | 'visual' | 'lectura' | 'simulacro';
-export type ErrorType = 'calculo' | 'signo' | 'formula' | 'lectura' | 'planteamiento' | 'tiempo' | 'ninguno';
+export type CepreQuestionType = 'calculo' | 'problema' | 'simulacro';
+export type ErrorType = 'calculo' | 'signo' | 'formula' | 'planteamiento' | 'tiempo' | 'ninguno';
 export type SyncStatus = 'synced' | 'pending' | 'failed';
 
 export interface TrainingConfig {
@@ -179,12 +169,6 @@ export const categoryLabels: Record<Category, string> = {
   divisibility: 'MCD, MCM y divisibilidad',
   averages: 'Promedios',
   series: 'Series',
-  geometry: 'Geometría',
-  trigonometry: 'Trigonometría',
-  statistics: 'Estadística',
-  probability: 'Probabilidad',
-  combinatorics: 'Combinatoria',
-  reasoning: 'Razonamiento',
   mixed: 'Simulacro mixto',
 };
 
@@ -229,11 +213,7 @@ export const anzanPresetLabels: Record<AnzanPreset, string> = {
 export const cepreBlockLabels: Record<CepreBlock, string> = {
   numbers: 'Números y operaciones',
   algebra: 'Álgebra',
-  geometry: 'Geometría y medida',
-  readingComprehension: 'Lectura comprensiva',
-  readingInterpretive: 'Lectura interpretativa',
-  readingCritical: 'Lectura crítica',
-  mixed: 'Simulacro mixto',
+  mixed: 'Números + álgebra',
 };
 
 export const cepreModeLabels: Record<CepreMode, string> = {

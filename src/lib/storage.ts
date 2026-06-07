@@ -1,13 +1,49 @@
-import type { TrainingSession } from '../types';
+import type { TrainingSession, UserAnswer } from '../types';
+import { categoryLabels, cepreBlockLabels } from '../types';
 
 const STORAGE_KEY = 'math-sprint-coach:sessions';
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object';
+
+const hasAllowedConfig = (session: TrainingSession) => {
+  const config = session.config as unknown;
+  if (!isRecord(config)) return false;
+  if (session.kind === 'flashAnzan') return typeof config.terms === 'number' && typeof config.digits === 'number';
+  if ('category' in config) return typeof config.category === 'string' && config.category in categoryLabels;
+  if ('block' in config) return typeof config.block === 'string' && config.block in cepreBlockLabels;
+  return false;
+};
+
+const hasAllowedAnswer = (answer: UserAnswer) => (
+  Boolean(answer)
+  && typeof answer.category === 'string'
+  && answer.category in categoryLabels
+  && (!answer.block || answer.block in cepreBlockLabels)
+  && (answer.questionType as string | undefined) !== 'lectura'
+  && (answer.errorType as string | undefined) !== 'lectura'
+);
+
+const sanitizeSessions = (sessions: TrainingSession[]) => {
+  const cleanSessions = sessions.filter((session) => (
+    hasAllowedConfig(session)
+    && Array.isArray(session.answers)
+    && session.answers.length > 0
+    && session.answers.every(hasAllowedAnswer)
+  ));
+
+  if (cleanSessions.length !== sessions.length) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanSessions));
+  }
+
+  return cleanSessions;
+};
 
 export const loadSessions = (): TrainingSession[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const sessions = JSON.parse(raw) as TrainingSession[];
-    return Array.isArray(sessions) ? sessions : [];
+    return Array.isArray(sessions) ? sanitizeSessions(sessions) : [];
   } catch {
     return [];
   }

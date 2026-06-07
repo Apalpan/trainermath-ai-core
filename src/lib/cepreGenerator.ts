@@ -1,7 +1,5 @@
-import type { AnswerChoice, CepreBlock, CepreConfig, ChoiceKey, Exercise, Level } from '../types';
-import { fractionText, gcd, numericChoices, pick, rand, shuffle } from './exerciseGenerator';
-
-const choiceKeys: ChoiceKey[] = ['A', 'B', 'C', 'D'];
+import type { CepreBlock, CepreConfig, Exercise, Level } from '../types';
+import { fractionText, gcd, numericChoices, pick, rand } from './exerciseGenerator';
 
 const levelScale: Record<Level, number> = {
   level1: 1,
@@ -11,11 +9,6 @@ const levelScale: Record<Level, number> = {
   level5: 2.8,
 };
 
-const assignChoices = (labels: string[], correctIndex: number): AnswerChoice[] =>
-  shuffle(labels.map((label, index) => ({ label, value: index, isCorrect: index === correctIndex })))
-    .slice(0, 4)
-    .map((choice, index) => ({ ...choice, key: choiceKeys[index] }));
-
 const createCepreExercise = (exercise: Omit<Exercise, 'id' | 'trainer'>): Exercise => ({
   ...exercise,
   id: crypto.randomUUID(),
@@ -24,14 +17,13 @@ const createCepreExercise = (exercise: Omit<Exercise, 'id' | 'trainer'>): Exerci
 
 const numberProblem = (level: Level): Exercise => {
   const scale = levelScale[level];
-  const type = pick(['fraction', 'percentage', 'sets', 'mcm', 'combined'] as const);
+  const type = pick(['fraction', 'percentage', 'sets', 'mcm', 'combined', 'average', 'series', 'ratio'] as const);
 
   if (type === 'fraction') {
     const denominator = rand(6, Math.round(12 * scale));
     const numerator = rand(2, denominator - 2);
     const value = rand(24, Math.round(80 * scale));
-    const answer = (value * numerator) / denominator;
-    const rounded = Math.round(answer);
+    const answer = Math.round((value * numerator) / denominator);
     return createCepreExercise({
       category: 'fractions',
       block: 'numbers',
@@ -41,11 +33,11 @@ const numberProblem = (level: Level): Exercise => {
       skill: 'Traducir fracción a operación directa',
       expectedError: 'planteamiento',
       targetTimeSec: 70,
-      prompt: `De ${value} estudiantes, ${fractionText(numerator, denominator)} aprobó. ¿Cuántos aprobaron?`,
-      answer: rounded,
-      answerLabel: String(rounded),
-      choices: numericChoices(rounded, String(rounded), 3),
-      explanation: `${value} × ${numerator}/${denominator} = ${rounded}.`,
+      prompt: `De ${value} elementos, ${fractionText(numerator, denominator)} cumple una condición. ¿Cuántos cumplen?`,
+      answer,
+      answerLabel: String(answer),
+      choices: numericChoices(answer, String(answer), 3),
+      explanation: `${value} × ${numerator}/${denominator} = ${answer}.`,
     });
   }
 
@@ -76,7 +68,7 @@ const numberProblem = (level: Level): Exercise => {
     const both = rand(5, Math.min(a, b, 22));
     const answer = a + b - both;
     return createCepreExercise({
-      category: 'reasoning',
+      category: 'combined',
       block: 'numbers',
       topic: 'Conjuntos',
       microtopic: 'Unión de dos conjuntos',
@@ -84,7 +76,7 @@ const numberProblem = (level: Level): Exercise => {
       skill: 'Usar inclusión-exclusión',
       expectedError: 'formula',
       targetTimeSec: 85,
-      prompt: `En un grupo, ${a} prefieren A, ${b} prefieren B y ${both} ambos. ¿Cuántos prefieren al menos una opción?`,
+      prompt: `En un grupo, ${a} pertenecen a A, ${b} pertenecen a B y ${both} a ambos. ¿Cuántos pertenecen al menos a uno?`,
       answer,
       answerLabel: String(answer),
       choices: numericChoices(answer, String(answer), 4),
@@ -113,10 +105,77 @@ const numberProblem = (level: Level): Exercise => {
     });
   }
 
-  const a = rand(8, Math.round(30 * scale));
-  const b = rand(3, 12);
-  const c = rand(6, Math.round(35 * scale));
-  const answer = a * b + c;
+  if (type === 'average') {
+    const a = rand(8, Math.round(20 * scale));
+    const b = rand(8, Math.round(20 * scale));
+    const c = rand(8, Math.round(20 * scale));
+    const answer = Math.round((a + b + c) / 3);
+    return createCepreExercise({
+      category: 'averages',
+      block: 'numbers',
+      topic: 'Promedios',
+      microtopic: 'Media aritmética',
+      questionType: 'calculo',
+      skill: 'Sumar y dividir por la cantidad de datos',
+      expectedError: 'calculo',
+      targetTimeSec: 55,
+      prompt: `Promedio de ${a}, ${b} y ${c}`,
+      answer,
+      answerLabel: String(answer),
+      choices: numericChoices(answer, String(answer), 3),
+      explanation: `(${a} + ${b} + ${c}) ÷ 3 = ${answer}.`,
+    });
+  }
+
+  if (type === 'series') {
+    const start = rand(2, 24);
+    const step = rand(2, Math.round(9 * scale));
+    const answer = start + step * 4;
+    const series = [start, start + step, start + step * 2, start + step * 3];
+    return createCepreExercise({
+      category: 'series',
+      block: 'numbers',
+      topic: 'Series numéricas',
+      microtopic: 'Diferencia constante',
+      questionType: 'calculo',
+      skill: 'Detectar patrón de avance',
+      expectedError: 'planteamiento',
+      targetTimeSec: 50,
+      prompt: `${series.join(', ')}, ?`,
+      answer,
+      answerLabel: String(answer),
+      choices: numericChoices(answer, String(answer), step),
+      explanation: `La diferencia es ${step}. El siguiente término es ${answer}.`,
+    });
+  }
+
+  if (type === 'ratio') {
+    const a = rand(2, 6);
+    const b = rand(3, 9);
+    const k = rand(4, Math.round(10 * scale));
+    const total = (a + b) * k;
+    const answer = b * k;
+    return createCepreExercise({
+      category: 'ratios',
+      block: 'numbers',
+      topic: 'Razones',
+      microtopic: 'Reparto proporcional',
+      questionType: 'problema',
+      skill: 'Convertir razón a partes',
+      expectedError: 'planteamiento',
+      targetTimeSec: 80,
+      prompt: `A:B = ${a}:${b}. Si A+B=${total}, halla B.`,
+      answer,
+      answerLabel: String(answer),
+      choices: numericChoices(answer, String(answer), 4),
+      explanation: `${a + b} partes = ${total}; 1 parte = ${k}; B = ${b} × ${k} = ${answer}.`,
+    });
+  }
+
+  const x = rand(8, Math.round(30 * scale));
+  const y = rand(3, 12);
+  const z = rand(6, Math.round(35 * scale));
+  const answer = x * y + z;
   return createCepreExercise({
     category: 'combined',
     block: 'numbers',
@@ -126,17 +185,17 @@ const numberProblem = (level: Level): Exercise => {
     skill: 'Aplicar prioridad de multiplicación',
     expectedError: 'calculo',
     targetTimeSec: 50,
-    prompt: `${c} + ${a} × ${b}`,
+    prompt: `${z} + ${x} × ${y}`,
     answer,
     answerLabel: String(answer),
     choices: numericChoices(answer, String(answer), 5),
-    explanation: `Primero ${a} × ${b} = ${a * b}; luego + ${c} = ${answer}.`,
+    explanation: `Primero ${x} × ${y} = ${x * y}; luego + ${z} = ${answer}.`,
   });
 };
 
 const algebraProblem = (level: Level): Exercise => {
   const scale = levelScale[level];
-  const type = pick(['linear', 'system', 'notable', 'factor', 'polynomial'] as const);
+  const type = pick(['linear', 'system', 'notable', 'factor', 'polynomial', 'fractionalEquation'] as const);
 
   if (type === 'linear') {
     const x = rand(2, Math.round(12 * scale));
@@ -222,6 +281,28 @@ const algebraProblem = (level: Level): Exercise => {
     });
   }
 
+  if (type === 'fractionalEquation') {
+    const x = rand(2, Math.round(10 * scale));
+    const divisor = pick([2, 3, 4, 5]);
+    const add = rand(3, 12);
+    const total = x / divisor + add;
+    return createCepreExercise({
+      category: 'algebra',
+      block: 'algebra',
+      topic: 'Ecuaciones fraccionarias',
+      microtopic: 'Despeje con división',
+      questionType: 'calculo',
+      skill: 'Aislar término y multiplicar',
+      expectedError: 'signo',
+      targetTimeSec: 80,
+      prompt: `x/${divisor} + ${add} = ${total}. Halla x.`,
+      answer: x,
+      answerLabel: String(x),
+      choices: numericChoices(x, String(x), 2),
+      explanation: `x/${divisor} = ${total - add}; x = ${x}.`,
+    });
+  }
+
   const a = rand(2, Math.round(7 * scale));
   const x = rand(2, 5);
   const answer = a * x * x + 2 * x - 1;
@@ -242,208 +323,14 @@ const algebraProblem = (level: Level): Exercise => {
   });
 };
 
-const geometryProblem = (level: Level): Exercise => {
-  const scale = levelScale[level];
-  const type = pick(['angles', 'parallel', 'pythagoras', 'area', 'similarity'] as const);
-
-  if (type === 'angles') {
-    const a = rand(35, 80);
-    const b = rand(35, 80);
-    const answer = 180 - a - b;
-    return createCepreExercise({
-      category: 'geometry',
-      block: 'geometry',
-      topic: 'Triángulos',
-      microtopic: 'Suma de ángulos internos',
-      questionType: 'visual',
-      skill: 'Completar ángulo faltante',
-      expectedError: 'formula',
-      targetTimeSec: 60,
-      prompt: `En un triángulo, dos ángulos miden ${a}° y ${b}°. El tercero mide`,
-      answer,
-      answerLabel: `${answer}°`,
-      choices: numericChoices(answer, `${answer}°`, 4),
-      explanation: `180° - ${a}° - ${b}° = ${answer}°.`,
-    });
-  }
-
-  if (type === 'parallel') {
-    const angle = rand(35, 140);
-    const answer = 180 - angle;
-    return createCepreExercise({
-      category: 'geometry',
-      block: 'geometry',
-      topic: 'Ángulos entre paralelas',
-      microtopic: 'Suplementarios',
-      questionType: 'visual',
-      skill: 'Reconocer pares suplementarios',
-      expectedError: 'formula',
-      targetTimeSec: 70,
-      prompt: `Dos ángulos interiores consecutivos entre paralelas suman 180°. Si uno mide ${angle}°, el otro mide`,
-      answer,
-      answerLabel: `${answer}°`,
-      choices: numericChoices(answer, `${answer}°`, 4),
-      explanation: `180° - ${angle}° = ${answer}°.`,
-    });
-  }
-
-  if (type === 'pythagoras') {
-    const triples = [[3, 4, 5], [5, 12, 13], [6, 8, 10], [8, 15, 17], [7, 24, 25]];
-    const [a, b, c] = pick(triples);
-    return createCepreExercise({
-      category: 'geometry',
-      block: 'geometry',
-      topic: 'Teorema de Pitágoras',
-      microtopic: 'Hipotenusa',
-      questionType: 'visual',
-      skill: 'Reconocer terna pitagórica',
-      expectedError: 'formula',
-      targetTimeSec: 70,
-      prompt: `Catetos ${a} y ${b}. ¿Hipotenusa?`,
-      answer: c,
-      answerLabel: String(c),
-      choices: numericChoices(c, String(c), 2),
-      explanation: `${a}² + ${b}² = ${c}².`,
-    });
-  }
-
-  if (type === 'area') {
-    const base = rand(6, Math.round(18 * scale));
-    const height = rand(4, Math.round(14 * scale));
-    const answer = (base * height) / 2;
-    return createCepreExercise({
-      category: 'geometry',
-      block: 'geometry',
-      topic: 'Áreas de regiones triangulares',
-      microtopic: 'Base por altura',
-      questionType: 'calculo',
-      skill: 'Aplicar fórmula de área',
-      expectedError: 'formula',
-      targetTimeSec: 60,
-      prompt: `Área de un triángulo con b=${base} y h=${height}`,
-      answer,
-      answerLabel: String(answer),
-      choices: numericChoices(answer, String(answer), 3),
-      explanation: `A = ${base} × ${height} ÷ 2 = ${answer}.`,
-    });
-  }
-
-  const small = rand(3, 8);
-  const ratio = rand(2, Math.round(4 * scale));
-  const answer = small * ratio;
-  return createCepreExercise({
-    category: 'geometry',
-    block: 'geometry',
-    topic: 'Semejanza de triángulos',
-    microtopic: 'Razón de semejanza',
-    questionType: 'problema',
-    skill: 'Escalar lados proporcionales',
-    expectedError: 'planteamiento',
-    targetTimeSec: 85,
-    prompt: `Dos triángulos son semejantes con razón ${ratio}:1. Si un lado menor mide ${small}, el correspondiente mayor mide`,
-    answer,
-    answerLabel: String(answer),
-    choices: numericChoices(answer, String(answer), 2),
-    explanation: `${small} × ${ratio} = ${answer}.`,
-  });
-};
-
-const readingProblem = (block: Extract<CepreBlock, 'readingComprehension' | 'readingInterpretive' | 'readingCritical'>): Exercise => {
-  const items = {
-    readingComprehension: [
-      {
-        text: 'Un estudiante mejora su rendimiento cuando revisa sus errores inmediatamente después de practicar, porque transforma fallas aisladas en patrones corregibles.',
-        question: 'La idea central del texto es que',
-        correct: 'revisar errores permite convertir fallas en aprendizaje.',
-        wrong: ['la práctica sin revisión siempre es suficiente.', 'los errores deben evitarse por completo.', 'el rendimiento depende solo del tiempo estudiado.'],
-        topic: 'Análisis y síntesis',
-        microtopic: 'Idea principal',
-        explanation: 'El texto enfatiza la revisión de errores como mecanismo de mejora.',
-      },
-      {
-        text: 'La velocidad sin precisión produce una ilusión de dominio: se responde rápido, pero se consolidan errores que luego son difíciles de corregir.',
-        question: 'Según el texto, el riesgo principal de priorizar solo velocidad es',
-        correct: 'reforzar errores por falta de precisión.',
-        wrong: ['reducir el número de preguntas.', 'eliminar la necesidad de practicar.', 'mejorar automáticamente la memoria.'],
-        topic: 'Análisis y síntesis',
-        microtopic: 'Idea explícita',
-        explanation: 'El riesgo señalado es consolidar errores al responder rápido sin control.',
-      },
-    ],
-    readingInterpretive: [
-      {
-        text: 'Aunque el simulacro no predice todo el examen, revela hábitos invisibles: distracciones, fatiga y temas que parecen dominados hasta que aparece presión.',
-        question: 'Se puede inferir que el simulacro sirve para',
-        correct: 'detectar hábitos y debilidades bajo condiciones reales.',
-        wrong: ['garantizar el resultado final.', 'evitar estudiar teoría.', 'memorizar todas las respuestas posibles.'],
-        topic: 'Inferencias',
-        microtopic: 'Inferencia contextual',
-        explanation: 'El texto dice que revela hábitos invisibles cuando hay presión.',
-      },
-      {
-        text: 'Un argumento sólido no se mide por su extensión, sino por la relación entre evidencia, conclusión y ausencia de contradicciones.',
-        question: 'El criterio defendido por el texto es',
-        correct: 'coherencia entre evidencia y conclusión.',
-        wrong: ['cantidad de palabras utilizadas.', 'uso de frases complejas.', 'opinión de la mayoría.'],
-        topic: 'Inferencias',
-        microtopic: 'Criterio implícito',
-        explanation: 'La fortaleza argumentativa se vincula con coherencia y evidencia.',
-      },
-    ],
-    readingCritical: [
-      {
-        text: '“Todos usan esta técnica, por lo tanto debe ser la mejor”.',
-        question: 'El razonamiento anterior presenta principalmente',
-        correct: 'apelación a la popularidad.',
-        wrong: ['generalización estadística válida.', 'definición precisa.', 'analogía demostrativa.'],
-        topic: 'Paráfrasis y argumentación',
-        microtopic: 'Falacia',
-        explanation: 'Se asume que algo es mejor solo porque muchas personas lo usan.',
-      },
-      {
-        text: 'Tesis: La práctica debe medirse. Razón: sin medición, el estudiante no distingue entre avance real y sensación de avance.',
-        question: 'La función de la razón es',
-        correct: 'justificar la necesidad de medir la práctica.',
-        wrong: ['contradecir la tesis.', 'presentar un ejemplo ajeno.', 'definir qué es un examen.'],
-        topic: 'Tesis, argumentos y síntesis',
-        microtopic: 'Relación tesis-argumento',
-        explanation: 'La razón sostiene directamente la tesis propuesta.',
-      },
-    ],
-  };
-
-  const item = pick(items[block]);
-  const labels = [item.correct, ...item.wrong];
-  return createCepreExercise({
-    category: 'reasoning',
-    block,
-    topic: item.topic,
-    microtopic: item.microtopic,
-    questionType: 'lectura',
-    skill: block === 'readingCritical' ? 'Evaluar argumento' : 'Leer con evidencia',
-    expectedError: 'lectura',
-    targetTimeSec: 115,
-    prompt: `${item.text}\n\n${item.question}`,
-    answer: 0,
-    answerLabel: item.correct,
-    choices: assignChoices(labels, 0),
-    explanation: item.explanation,
-  });
-};
-
 const createByBlock = (block: CepreBlock, level: Level): Exercise => {
   if (block === 'numbers') return numberProblem(level);
   if (block === 'algebra') return algebraProblem(level);
-  if (block === 'geometry') return geometryProblem(level);
-  if (block === 'readingComprehension' || block === 'readingInterpretive' || block === 'readingCritical') return readingProblem(block);
 
   return pick([
     () => numberProblem(level),
+    () => numberProblem(level),
     () => algebraProblem(level),
-    () => geometryProblem(level),
-    () => readingProblem('readingComprehension'),
-    () => readingProblem('readingInterpretive'),
-    () => readingProblem('readingCritical'),
   ])();
 };
 
