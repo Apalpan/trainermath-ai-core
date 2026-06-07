@@ -37,6 +37,106 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.trainer-math {
+  --tm-bg: #050711;
+  --tm-bg-2: #080d1b;
+  --tm-card: rgba(16, 20, 38, 0.82);
+  --tm-card-strong: #101426;
+  --tm-border: rgba(255, 255, 255, 0.14);
+  --tm-blue: #0a74ff;
+  --tm-cyan: #18c8ff;
+  --tm-violet: #7c3aed;
+  --tm-text: #ffffff;
+  --tm-muted: #c5c8d6;
+  --tm-soft: #8e929e;
+  background:
+    radial-gradient(circle at 20% 8%, rgba(10, 116, 255, 0.26), transparent 28%),
+    radial-gradient(circle at 84% 18%, rgba(124, 58, 237, 0.2), transparent 28%),
+    linear-gradient(180deg, var(--tm-bg), var(--tm-bg-2) 56%, #050711);
+  color: var(--tm-text);
+}
+
+.trainer-math::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(24, 200, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(24, 200, 255, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 50% 15%, black 0%, transparent 72%);
+}
+
+.trainer-math > * {
+  position: relative;
+  z-index: 1;
+}
+
+.trainer-math .bg-white,
+.trainer-math .bg-\[\#F4F7FF\] {
+  background: var(--tm-card) !important;
+  color: var(--tm-text) !important;
+  backdrop-filter: blur(18px);
+}
+
+.trainer-math .bg-\[\#040F20\] {
+  background: rgba(5, 7, 17, 0.92) !important;
+}
+
+.trainer-math .border-\[\#DCE5F2\],
+.trainer-math .border-\[\#0A244C\] {
+  border-color: var(--tm-border) !important;
+}
+
+.trainer-math .text-\[\#0A244C\],
+.trainer-math .text-\[\#2165FF\] {
+  color: var(--tm-text) !important;
+}
+
+.trainer-math .text-\[\#7A8AA0\] {
+  color: var(--tm-soft) !important;
+}
+
+.trainer-math .text-\[\#8DB1FF\] {
+  color: var(--tm-cyan) !important;
+}
+
+.trainer-math .bg-\[\#2165FF\] {
+  background: linear-gradient(135deg, var(--tm-blue), var(--tm-violet)) !important;
+}
+
+.trainer-math .shadow-soft {
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.trainer-math input {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: var(--tm-border) !important;
+  color: var(--tm-text) !important;
+}
+
+.trainer-math input::placeholder {
+  color: var(--tm-soft);
+}
+
+.trainer-math button:focus-visible,
+.trainer-math input:focus-visible {
+  outline: 3px solid rgba(24, 200, 255, 0.55);
+  outline-offset: 3px;
+}
+
+.trainer-math .choice-card {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: var(--tm-border) !important;
+  color: var(--tm-text) !important;
+}
+
+.trainer-math .choice-card:hover:not(:disabled) {
+  border-color: rgba(24, 200, 255, 0.75) !important;
+  box-shadow: 0 0 32px rgba(24, 200, 255, 0.16);
+}
+
 .font-display {
   font-family: "Space Grotesk", "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif;
 }

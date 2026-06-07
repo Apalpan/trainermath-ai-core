@@ -20,11 +20,14 @@ export type Category =
 export type TrainingMode = 'accuracy' | 'speed' | 'mixed';
 export type ChoiceKey = 'A' | 'B' | 'C' | 'D';
 export type TrainerProduct = 'math' | 'cepre';
-export type DrillKind = 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'cepreExam';
+export type DrillKind = 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'doubleX2' | 'cepreExam';
 export type AnzanOperationMode = 'addition' | 'additionSubtraction';
 export type AnzanAdvanceMode = 'timed' | 'manual';
 export type AnzanPreset = 'easy' | 'medium' | 'hard' | 'expert' | 'custom';
 export type MultiplicationType = 'oneByOne' | 'oneByTwo' | 'twoByTwo' | 'chain' | 'doubleInfinity' | 'mixed';
+export type ChainFactorCount = 2 | 3 | 4;
+export type PracticeTopic = Category | 'chainMultiplication' | 'doubleX2';
+export type DoubleX2StepLimit = 10 | 20 | 30 | 'infinite';
 
 export type CepreBlock = 'numbers' | 'algebra' | 'mixed';
 export type CepreMode = 'diagnostic' | 'practice' | 'simulation' | 'errorReview';
@@ -35,6 +38,7 @@ export type SyncStatus = 'synced' | 'pending' | 'failed';
 export interface TrainingConfig {
   level: Level;
   category: Category;
+  topics?: PracticeTopic[];
   amount: number;
   mode: TrainingMode;
   instantFeedback: boolean;
@@ -55,7 +59,13 @@ export interface MultiplicationConfig {
   amount: number;
   mode: TrainingMode;
   multiplicationType: MultiplicationType;
+  chainFactorCount?: ChainFactorCount;
   instantFeedback: boolean;
+}
+
+export interface DoubleX2Config {
+  start: number;
+  stepLimit: DoubleX2StepLimit;
 }
 
 export interface CepreConfig {
@@ -152,13 +162,19 @@ export interface SessionMetrics {
   bestCategory: string;
   status: string;
   enduranceInsight: string;
+  currentStreak?: number;
+  bestStreak?: number;
+  completed?: number;
+  maxValue?: number;
+  historyPreview?: string;
+  chainFactorCount?: number;
 }
 
 export interface TrainingSession {
   id: string;
   createdAt: string;
   kind: DrillKind;
-  config: TrainingConfig | AnzanConfig | MultiplicationConfig | CepreConfig;
+  config: TrainingConfig | AnzanConfig | MultiplicationConfig | DoubleX2Config | CepreConfig;
   metrics: SessionMetrics;
   answers: UserAnswer[];
   syncStatus?: SyncStatus;
@@ -183,11 +199,11 @@ export const categoryLabels: Record<Category, string> = {
 };
 
 export const levelLabels: Record<Level, string> = {
-  level1: 'Nivel 1 - Base',
-  level2: 'Nivel 2 - Rápido',
-  level3: 'Nivel 3 - Intermedio',
-  level4: 'Nivel 4 - Avanzado',
-  level5: 'Nivel 5 - Experto',
+  level1: 'Nivel 1 - Básico',
+  level2: 'Nivel 2 - Intermedio',
+  level3: 'Nivel 3 - Avanzado',
+  level4: 'Nivel 4 - Intenso',
+  level5: 'Nivel 5 - Reto',
 };
 
 export const modeLabels: Record<TrainingMode, string> = {
@@ -200,6 +216,7 @@ export const drillLabels: Record<DrillKind, string> = {
   operations: 'Operaciones diversas',
   flashAnzan: 'Flash Anzan',
   multiplicationSprint: 'Multiplicaciones rápidas',
+  doubleX2: 'Multiplicar x2',
   cepreExam: 'Entrenador Examen CEPRE',
 };
 
@@ -210,6 +227,26 @@ export const multiplicationTypeLabels: Record<MultiplicationType, string> = {
   chain: 'Multiplicación encadenada',
   doubleInfinity: 'Doble infinito',
   mixed: 'Mixto',
+};
+
+export const practiceTopicLabels: Record<PracticeTopic, string> = {
+  mixed: 'Completo mixto',
+  addition: 'Sumas',
+  subtraction: 'Restas',
+  multiplication: 'Multiplicaciones',
+  division: 'Divisiones',
+  fractions: 'Fracciones',
+  powers: 'Potencias',
+  roots: 'Raíces',
+  algebra: 'Álgebra básica',
+  combined: 'Operaciones combinadas',
+  percentages: 'Porcentajes',
+  ratios: 'Razones',
+  divisibility: 'MCD / MCM',
+  averages: 'Promedios',
+  series: 'Series',
+  chainMultiplication: 'Multiplicación encadenada',
+  doubleX2: 'Multiplicar x2',
 };
 
 export const anzanOperationLabels: Record<AnzanOperationMode, string> = {
@@ -223,10 +260,10 @@ export const anzanAdvanceLabels: Record<AnzanAdvanceMode, string> = {
 };
 
 export const anzanPresetLabels: Record<AnzanPreset, string> = {
-  easy: 'Fácil',
-  medium: 'Medio',
-  hard: 'Difícil',
-  expert: 'Experto',
+  easy: 'Básico',
+  medium: 'Intermedio',
+  hard: 'Avanzado',
+  expert: 'Reto',
   custom: 'Manual',
 };
 

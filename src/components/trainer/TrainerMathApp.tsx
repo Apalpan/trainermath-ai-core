@@ -22,7 +22,7 @@ import {
 import { generateCepreExercises } from '../../lib/cepreGenerator';
 import { generateExercises, generateFlashAnzanExercise } from '../../lib/exerciseGenerator';
 import { generateMultiplicationExercises } from '../../lib/multiplicationGenerator';
-import { calculateAnzanMetrics, calculateCepreMetrics, calculateMetrics, calculateMultiplicationMetrics, formatDuration } from '../../lib/scoring';
+import { calculateAnzanMetrics, calculateCepreMetrics, calculateDoubleX2Metrics, calculateMetrics, calculateMultiplicationMetrics, formatCompactNumber, formatDuration } from '../../lib/scoring';
 import { analyzeSessions, displaySessionConfig } from '../../lib/sessionAnalytics';
 import type { TrainerInsights } from '../../lib/sessionAnalytics';
 import { loadSessions, saveSession, updateSessionSyncStatus } from '../../lib/storage';
@@ -33,15 +33,19 @@ import type {
   AnzanExercise,
   AnzanPreset,
   Category,
+  ChainFactorCount,
   CepreBlock,
   CepreConfig,
   CepreMode,
   ChoiceKey,
+  DoubleX2Config,
+  DoubleX2StepLimit,
   DrillKind,
   Exercise,
   Level,
   MultiplicationConfig,
   MultiplicationType,
+  PracticeTopic,
   TrainerProduct,
   TrainingConfig,
   TrainingMode,
@@ -59,14 +63,19 @@ import {
   levelLabels,
   modeLabels,
   multiplicationTypeLabels,
+  practiceTopicLabels,
 } from '../../types';
 
 type Screen = 'setup' | 'training' | 'results';
 type AnzanPhase = 'sequence' | 'answer';
+type X2Phase = 'setup' | 'running';
+
+const TOPIC_SELECTION_KEY = 'trainermath-v2:selected-topics';
 
 const defaultConfig: TrainingConfig = {
   level: 'level1',
   category: 'mixed',
+  topics: ['mixed'],
   amount: 25,
   mode: 'mixed',
   instantFeedback: true,
@@ -95,7 +104,13 @@ const defaultMultiplicationConfig: MultiplicationConfig = {
   amount: 30,
   mode: 'speed',
   multiplicationType: 'mixed',
+  chainFactorCount: 3,
   instantFeedback: true,
+};
+
+const defaultDoubleX2Config: DoubleX2Config = {
+  start: 12,
+  stepLimit: 20,
 };
 
 const categoryOptions: Category[] = [
@@ -119,6 +134,26 @@ const categoryOptions: Category[] = [
 const cepreBlockOptions: CepreBlock[] = ['mixed', 'numbers', 'algebra'];
 const cepreModeOptions: CepreMode[] = ['diagnostic', 'practice', 'simulation', 'errorReview'];
 const multiplicationTypeOptions: MultiplicationType[] = ['mixed', 'oneByOne', 'oneByTwo', 'twoByTwo', 'chain', 'doubleInfinity'];
+const chainFactorOptions: ChainFactorCount[] = [2, 3, 4];
+const stepLimitOptions: DoubleX2StepLimit[] = [10, 20, 30, 'infinite'];
+const practiceTopicOptions: PracticeTopic[] = [
+  'addition',
+  'subtraction',
+  'multiplication',
+  'chainMultiplication',
+  'doubleX2',
+  'division',
+  'fractions',
+  'percentages',
+  'ratios',
+  'divisibility',
+  'averages',
+  'algebra',
+  'combined',
+  'powers',
+  'roots',
+  'series',
+];
 const levelOptions: Level[] = ['level1', 'level2', 'level3', 'level4', 'level5'];
 const modeOptions: TrainingMode[] = ['mixed', 'speed', 'accuracy'];
 const amountOptions = [10, 20, 30, 50, 100];
@@ -133,17 +168,43 @@ const anzanPresets: Record<Exclude<AnzanPreset, 'custom'>, Pick<AnzanConfig, 'di
 };
 
 const productCards: Array<{ id: TrainerProduct; title: string; subtitle: string; icon: ReactNode }> = [
-  { id: 'math', title: 'Trainer Math 2.0', subtitle: 'Operaciones, multiplicaciones y Flash Anzan', icon: <Calculator size={20} /> },
+  { id: 'math', title: 'Trainer Math 2.0', subtitle: 'Operaciones, x2, multiplicaciones y Flash Anzan', icon: <Calculator size={20} /> },
   { id: 'cepre', title: 'Entrenador Examen CEPRE', subtitle: 'Números, álgebra y simulación por microtema', icon: <BookOpenCheck size={20} /> },
 ];
 
 const getMetricElo = (metrics: TrainingSession['metrics']) => metrics.elo ?? Math.round(900 + (metrics.speedScore ?? 0) * 5);
 
+const safeTopicSelection = (value: unknown): PracticeTopic[] | null => {
+  if (!Array.isArray(value)) return null;
+  const allowed = value.filter((item): item is PracticeTopic => typeof item === 'string' && item in practiceTopicLabels);
+  return allowed;
+};
+
+const readStoredTopics = () => {
+  try {
+    const raw = localStorage.getItem(TOPIC_SELECTION_KEY);
+    if (!raw) return null;
+    return safeTopicSelection(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredTopics = (topics: PracticeTopic[]) => {
+  try {
+    localStorage.setItem(TOPIC_SELECTION_KEY, JSON.stringify(topics));
+  } catch {
+    // localStorage can fail in restricted browser contexts.
+  }
+};
+
 const isCepreConfig = (config: TrainingSession['config']): config is CepreConfig => 'block' in config;
 const isMultiplicationConfig = (config: TrainingSession['config']): config is MultiplicationConfig => 'multiplicationType' in config;
+const isDoubleX2Config = (config: TrainingSession['config']): config is DoubleX2Config => 'start' in config && 'stepLimit' in config;
 
 const getSessionTitle = (session: TrainingSession) => {
   if (session.kind === 'flashAnzan') return 'Flash Anzan';
+  if (session.kind === 'doubleX2') return 'Multiplicar x2';
   if (session.kind === 'multiplicationSprint' && isMultiplicationConfig(session.config)) return multiplicationTypeLabels[session.config.multiplicationType];
   if (session.kind === 'cepreExam' && isCepreConfig(session.config)) return cepreBlockLabels[session.config.block];
   if ('category' in session.config) return categoryLabels[session.config.category];
@@ -160,6 +221,9 @@ const getSessionDetail = (session: TrainingSession) => {
   if (session.kind === 'multiplicationSprint' && isMultiplicationConfig(session.config)) {
     return `${levelLabels[session.config.level]} - ${session.config.amount} multiplicaciones`;
   }
+  if (session.kind === 'doubleX2' && isDoubleX2Config(session.config)) {
+    return `Inicio ${session.config.start} - ${session.metrics.completed ?? 0} pasos`;
+  }
   if ('amount' in session.config) {
     return `${levelLabels[session.config.level]} - ${session.config.amount} preguntas`;
   }
@@ -173,6 +237,9 @@ const buildSessionTips = (session: TrainingSession) => {
   if (session.kind === 'flashAnzan') {
     tips.push('Agrupa números en bloques de 10, 50 o 100; no repitas toda la secuencia desde cero.');
     tips.push('En sumas/restas, separa acumulado positivo y negativo antes de cerrar el resultado.');
+  } else if (session.kind === 'doubleX2') {
+    tips.push('Duplica por partes: primero decenas o centenas, luego unidades.');
+    tips.push('Usa el valor anterior como ancla visual y avanza solo cuando lo tengas claro.');
   } else if (session.kind === 'multiplicationSprint') {
     tips.push('Primero automatiza 1x1 y 1x2; luego pasa a 2x2 y encadenadas.');
     tips.push('En productos grandes, separa decenas y unidades para evitar carga mental innecesaria.');
@@ -199,6 +266,7 @@ export default function TrainerMathApp() {
   const [anzanConfig, setAnzanConfig] = useState<AnzanConfig>(defaultAnzanConfig);
   const [cepreConfig, setCepreConfig] = useState<CepreConfig>(defaultCepreConfig);
   const [multiplicationConfig, setMultiplicationConfig] = useState<MultiplicationConfig>(defaultMultiplicationConfig);
+  const [doubleX2Config, setDoubleX2Config] = useState<DoubleX2Config>(defaultDoubleX2Config);
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [anzanExercise, setAnzanExercise] = useState<AnzanExercise | null>(null);
@@ -223,7 +291,19 @@ export default function TrainerMathApp() {
     setSessions(loadSessions());
     setSheetEndpointState(getSheetEndpoint());
     setSyncPending(getPendingSyncCount());
+    const storedTopics = readStoredTopics();
+    if (storedTopics !== null) {
+      setConfig((current) => ({
+        ...current,
+        topics: storedTopics,
+        category: storedTopics.includes('mixed') ? 'mixed' : (storedTopics.find((topic): topic is Category => topic in categoryLabels) ?? 'mixed'),
+      }));
+    }
   }, []);
+
+  useEffect(() => {
+    if (config.topics) writeStoredTopics(config.topics);
+  }, [config.topics]);
 
   useEffect(() => {
     if (screen !== 'training' || !startedAt) return;
@@ -293,6 +373,17 @@ export default function TrainerMathApp() {
     setScreen('training');
   }, [multiplicationConfig]);
 
+  const startDoubleX2 = useCallback((nextConfig = doubleX2Config) => {
+    const now = Date.now();
+    setProduct('math');
+    setActiveDrill('doubleX2');
+    setDoubleX2Config(nextConfig);
+    setExercises([]);
+    setAnzanExercise(null);
+    resetRunState(now);
+    setScreen('training');
+  }, [doubleX2Config]);
+
   const startCepre = useCallback((nextConfig = cepreConfig) => {
     const now = Date.now();
     setProduct('cepre');
@@ -354,6 +445,38 @@ export default function TrainerMathApp() {
     });
     window.setTimeout(() => setScreen('results'), config.instantFeedback ? 520 : 180);
   };
+
+  const saveDoubleX2Session = useCallback((history: number[], stepDurations: number[], totalTimeMs: number) => {
+    if (history.length < 2) return;
+    const answers: UserAnswer[] = history.slice(1).map((value, index) => {
+      const previous = history[index];
+      return {
+        exerciseId: `x2-${index + 1}`,
+        category: 'multiplication',
+        prompt: `${previous} × 2`,
+        input: String(value),
+        correctAnswer: String(value),
+        isCorrect: true,
+        answeredAtMs: stepDurations.slice(0, index + 1).reduce((sum, time) => sum + time, 0),
+        responseTimeMs: stepDurations[index] ?? (totalTimeMs / Math.max(1, history.length - 1)),
+        trainer: 'math',
+        topic: 'Multiplicar x2',
+        microtopic: 'Duplicación progresiva',
+        questionType: 'calculo',
+        errorType: 'ninguno',
+      };
+    });
+
+    persistSession({
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      kind: 'doubleX2',
+      config: doubleX2Config,
+      metrics: calculateDoubleX2Metrics(answers, totalTimeMs, doubleX2Config, history, sessions),
+      answers,
+    });
+    window.setTimeout(() => setScreen('results'), 180);
+  }, [doubleX2Config, persistSession, sessions]);
 
   const submitChoice = useCallback((choice: AnswerChoice) => {
     if (!currentExercise || !startedAt || !questionStartedAt || isLocked) return;
@@ -480,6 +603,17 @@ export default function TrainerMathApp() {
         if (event.key === 'ArrowLeft') moveAnzan(-1);
         return;
       }
+      if (event.key === 'Escape') {
+        resetToSetup();
+        return;
+      }
+      if (event.key.toLowerCase() === 'r') {
+        if (activeDrill === 'flashAnzan') startAnzan();
+        else if (activeDrill === 'multiplicationSprint') startMultiplication();
+        else if (activeDrill === 'cepreExam') startCepre();
+        else if (activeDrill === 'operations') startOperations();
+        return;
+      }
       const key = event.key.toUpperCase() as ChoiceKey;
       if (!choiceKeys.includes(key)) return;
       if ((activeDrill === 'operations' || activeDrill === 'cepreExam' || activeDrill === 'multiplicationSprint') && currentExercise) {
@@ -493,7 +627,7 @@ export default function TrainerMathApp() {
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [activeDrill, anzanConfig.advanceMode, anzanExercise, anzanPhase, currentExercise, isLocked, moveAnzan, screen, submitAnzanChoice, submitChoice]);
+  }, [activeDrill, anzanConfig.advanceMode, anzanExercise, anzanPhase, currentExercise, isLocked, moveAnzan, screen, startAnzan, startCepre, startMultiplication, startOperations, submitAnzanChoice, submitChoice]);
 
   const resetToSetup = () => {
     setScreen('setup');
@@ -510,7 +644,7 @@ export default function TrainerMathApp() {
   };
 
   return (
-    <main className="min-h-screen bg-[#F4F7FF] text-[#0A244C]">
+    <main className="trainer-math min-h-screen bg-[#050711] text-white">
       <nav className="border-b border-white/10 bg-[#040F20] text-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
@@ -547,6 +681,9 @@ export default function TrainerMathApp() {
                     )}
                     {activeDrill === 'multiplicationSprint' && (
                       <MultiplicationSetup config={multiplicationConfig} onChange={setMultiplicationConfig} onStart={() => startMultiplication()} />
+                    )}
+                    {activeDrill === 'doubleX2' && (
+                      <DoubleX2Setup config={doubleX2Config} onChange={setDoubleX2Config} onStart={() => startDoubleX2()} />
                     )}
                     {activeDrill === 'flashAnzan' && (
                       <AnzanSetup config={anzanConfig} onChange={setAnzanConfig} onStart={() => startAnzan()} />
@@ -601,12 +738,22 @@ export default function TrainerMathApp() {
           />
         )}
 
+        {screen === 'training' && activeDrill === 'doubleX2' && (
+          <TrainerX2
+            config={doubleX2Config}
+            elapsedMs={elapsedMs}
+            onSave={saveDoubleX2Session}
+            onCancel={resetToSetup}
+          />
+        )}
+
         {screen === 'results' && latestSession && (
           <ResultsScreen
             session={latestSession}
             onRepeat={() => {
               if (latestSession.kind === 'flashAnzan') startAnzan(latestSession.config as AnzanConfig);
               else if (latestSession.kind === 'multiplicationSprint') startMultiplication(latestSession.config as MultiplicationConfig);
+              else if (latestSession.kind === 'doubleX2') startDoubleX2(latestSession.config as DoubleX2Config);
               else if (latestSession.kind === 'cepreExam') startCepre(latestSession.config as CepreConfig);
               else startOperations(latestSession.config as TrainingConfig);
             }}
@@ -647,17 +794,17 @@ function IntroBar() {
 }
 
 function DrillSwitcher({ activeDrill, onChange }: { activeDrill: DrillKind; onChange: (drill: DrillKind) => void }) {
-  const drills: DrillKind[] = ['operations', 'multiplicationSprint', 'flashAnzan'];
+  const drills: DrillKind[] = ['operations', 'multiplicationSprint', 'doubleX2', 'flashAnzan'];
   return (
     <div className="rounded-lg border border-[#DCE5F2] bg-white p-2 shadow-soft">
-      <div className="grid gap-2 lg:grid-cols-3">
+      <div className="grid gap-2 lg:grid-cols-4">
         {drills.map((drill) => (
           <button key={drill} className={`flex min-h-20 items-center gap-4 rounded-lg border px-4 py-3 text-left transition ${activeDrill === drill ? 'border-[#2165FF] bg-[#040F20] text-white' : 'border-[#DCE5F2] bg-[#F4F7FF] text-[#0A244C] hover:border-[#4D84FF]'}`} onClick={() => onChange(drill)}>
-            <span className="grid h-11 w-11 place-items-center rounded-md bg-[#2165FF] text-white">{drill === 'operations' ? <Target size={20} /> : drill === 'multiplicationSprint' ? <Calculator size={20} /> : <Brain size={20} />}</span>
+            <span className="grid h-11 w-11 place-items-center rounded-md bg-[#2165FF] text-white">{drill === 'operations' ? <Target size={20} /> : drill === 'multiplicationSprint' ? <Calculator size={20} /> : drill === 'doubleX2' ? <ArrowRight size={20} /> : <Brain size={20} />}</span>
             <span>
               <span className="block font-display text-lg font-black">{drillLabels[drill]}</span>
               <span className={`text-xs font-bold ${activeDrill === drill ? 'text-[#C7D3E6]' : 'text-[#7A8AA0]'}`}>
-                {drill === 'operations' ? 'Aritmética, álgebra y razonamiento' : drill === 'multiplicationSprint' ? '1x1, 1x2, 2x2 y doble infinito' : 'Sumas y restas rápidas'}
+                {drill === 'operations' ? 'Multi-tema con A/B/C/D' : drill === 'multiplicationSprint' ? '1x1, 1x2 y encadenadas' : drill === 'doubleX2' ? 'Duplicación con flechas' : 'Sumas y restas rápidas'}
               </span>
             </span>
           </button>
@@ -669,16 +816,78 @@ function DrillSwitcher({ activeDrill, onChange }: { activeDrill: DrillKind; onCh
 
 function TrainingSetup({ config, onChange, onStart }: { config: TrainingConfig; onChange: (config: TrainingConfig) => void; onStart: () => void }) {
   const setPartial = (partial: Partial<TrainingConfig>) => onChange({ ...config, ...partial });
+  const selectedTopics = config.topics ?? [config.category];
+  const [topicError, setTopicError] = useState('');
+  const updateTopics = (topics: PracticeTopic[]) => {
+    setTopicError('');
+    const category = topics.includes('mixed') ? 'mixed' : (topics.find((topic): topic is Category => topic in categoryLabels) ?? 'mixed');
+    setPartial({ topics, category });
+  };
+  const start = () => {
+    if (selectedTopics.length === 0) {
+      setTopicError('Selecciona al menos un tema.');
+      return;
+    }
+    onStart();
+  };
+
   return (
     <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-7">
-      <HeaderBlock eyebrow="Entrenamiento" title="Configura la ronda" text="Elige nivel, tema y cantidad. Marca A/B/C/D durante la prueba." action="Iniciar" onAction={onStart} />
+      <HeaderBlock eyebrow="Entrenamiento" title="Configura la ronda" text="Selecciona uno o varios temas. La ronda mezclará solo lo elegido." action="Empezar entrenamiento" onAction={start} />
       <div className="mt-6 grid gap-6">
         <Selector title="Nivel" items={levelOptions} labels={levelLabels} selected={config.level} onSelect={(level) => setPartial({ level })} />
-        <Selector title="Bloque / tema" items={categoryOptions} labels={categoryLabels} selected={config.category} onSelect={(category) => setPartial({ category })} grid />
+        <TopicMultiSelect selected={selectedTopics} onChange={updateTopics} />
+        {topicError && <p className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-black text-rose-200">{topicError}</p>}
         <Selector title="Modo" items={modeOptions} labels={modeLabels} selected={config.mode} onSelect={(mode) => setPartial({ mode })} />
         <AmountSelector value={config.amount} onChange={(amount) => setPartial({ amount })} />
       </div>
     </section>
+  );
+}
+
+function TopicMultiSelect({ selected, onChange }: { selected: PracticeTopic[]; onChange: (topics: PracticeTopic[]) => void }) {
+  const isComplete = selected.includes('mixed');
+  const effectiveSelected = isComplete ? ['mixed'] : selected;
+  const toggle = (topic: PracticeTopic) => {
+    if (topic === 'mixed') {
+      onChange(['mixed']);
+      return;
+    }
+    const base = selected.filter((item) => item !== 'mixed');
+    const next = base.includes(topic) ? base.filter((item) => item !== topic) : [...base, topic];
+    onChange(next);
+  };
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]">Temas de práctica</h3>
+        <div className="flex flex-wrap gap-2">
+          <button className="rounded-full border border-[#DCE5F2] px-3 py-2 text-xs font-black text-[#2165FF]" onClick={() => onChange([...practiceTopicOptions])}>Seleccionar todo</button>
+          <button className="rounded-full border border-[#DCE5F2] px-3 py-2 text-xs font-black text-[#7A8AA0]" onClick={() => onChange([])}>Limpiar</button>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <TopicChip topic="mixed" active={isComplete} onClick={() => toggle('mixed')} />
+        {practiceTopicOptions.map((topic) => (
+          <TopicChip key={topic} topic={topic} active={!isComplete && effectiveSelected.includes(topic)} onClick={() => toggle(topic)} />
+        ))}
+      </div>
+      <p className="mt-3 text-xs font-semibold text-[#7A8AA0]">
+        Activos: {isComplete ? 'Completo mixto' : selected.length ? `${selected.length} tema(s)` : 'ninguno'}
+      </p>
+    </div>
+  );
+}
+
+function TopicChip({ topic, active, onClick }: { topic: PracticeTopic; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      className={`rounded-full border px-4 py-2 text-sm font-black transition ${active ? 'border-[#18C8FF] bg-[#0A74FF] text-white shadow-[0_0_26px_rgba(24,200,255,0.24)]' : 'border-[#DCE5F2] bg-white text-[#0A244C] hover:border-[#18C8FF]'}`}
+      onClick={onClick}
+    >
+      {practiceTopicLabels[topic]}
+    </button>
   );
 }
 
@@ -690,10 +899,248 @@ function MultiplicationSetup({ config, onChange, onStart }: { config: Multiplica
       <div className="mt-6 grid gap-6">
         <Selector title="Nivel ELO" items={levelOptions} labels={levelLabels} selected={config.level} onSelect={(level) => setPartial({ level })} />
         <Selector title="Tipo de multiplicación" items={multiplicationTypeOptions} labels={multiplicationTypeLabels} selected={config.multiplicationType} onSelect={(multiplicationType) => setPartial({ multiplicationType })} grid />
+        <FactorCountSelector value={config.chainFactorCount ?? 3} onChange={(chainFactorCount) => setPartial({ chainFactorCount })} />
         <Selector title="Modo" items={modeOptions} labels={modeLabels} selected={config.mode} onSelect={(mode) => setPartial({ mode })} />
         <AmountSelector value={config.amount} onChange={(amount) => setPartial({ amount })} />
       </div>
     </section>
+  );
+}
+
+function FactorCountSelector({ value, onChange }: { value: ChainFactorCount; onChange: (value: ChainFactorCount) => void }) {
+  return (
+    <div>
+      <h3 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]">Factores encadenados</h3>
+      <div className="grid grid-cols-3 gap-2">
+        {chainFactorOptions.map((amount) => (
+          <button key={amount} className={`rounded-lg border px-4 py-3 text-sm font-black transition ${value === amount ? 'border-[#18C8FF] bg-[#0A74FF] text-white' : 'border-[#DCE5F2] bg-white text-[#0A244C] hover:border-[#18C8FF]'}`} onClick={() => onChange(amount)}>
+            {amount} factores
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs font-semibold text-[#7A8AA0]">Solo aplica al modo encadenado. Cada factor va de 1 a 9.</p>
+    </div>
+  );
+}
+
+function DoubleX2Setup({ config, onChange, onStart }: { config: DoubleX2Config; onChange: (config: DoubleX2Config) => void; onStart: () => void }) {
+  const [draft, setDraft] = useState(String(config.start));
+  const [error, setError] = useState('');
+  const setPartial = (partial: Partial<DoubleX2Config>) => onChange({ ...config, ...partial });
+
+  const commitStart = () => {
+    const parsed = Number(draft);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      setError('Ingresa un entero positivo.');
+      return false;
+    }
+    setError('');
+    setPartial({ start: parsed });
+    return true;
+  };
+
+  const start = () => {
+    if (commitStart()) onStart();
+  };
+
+  return (
+    <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-7">
+      <HeaderBlock eyebrow="Multiplicar x2" title="Elige el número inicial" text="Duplica con flecha derecha. Retrocede con flecha izquierda." action="Empezar" onAction={start} />
+      <div className="mt-7 grid gap-6">
+        <label className="block">
+          <span className="mb-3 block text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]">Número inicial</span>
+          <input
+            className="w-full rounded-2xl border border-[#DCE5F2] bg-[#F4F7FF] px-5 py-5 font-display text-4xl font-black text-[#0A244C] outline-none focus:border-[#18C8FF]"
+            inputMode="numeric"
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value.replace(/\D/g, '').slice(0, 9));
+              setError('');
+            }}
+            onBlur={commitStart}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') start();
+            }}
+            aria-label="Número inicial para multiplicar x2"
+          />
+        </label>
+        {error && <p className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-black text-rose-200">{error}</p>}
+        <div>
+          <h3 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]">Límite de pasos</h3>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {stepLimitOptions.map((limit) => (
+              <button key={String(limit)} className={`rounded-lg border px-4 py-3 text-sm font-black transition ${config.stepLimit === limit ? 'border-[#18C8FF] bg-[#0A74FF] text-white' : 'border-[#DCE5F2] bg-white text-[#0A244C] hover:border-[#18C8FF]'}`} onClick={() => setPartial({ stepLimit: limit })}>
+                {limit === 'infinite' ? 'Infinito' : `${limit} pasos`}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TrainingShell({ label, title, meta, children, onCancel }: { label: string; title: string; meta: string; children: ReactNode; onCancel: () => void }) {
+  return (
+    <section className="grid min-h-[calc(100vh-120px)] content-start gap-5">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 text-white backdrop-blur-xl">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#18C8FF]">{label}</p>
+            <h1 className="font-display mt-1 text-2xl font-black tracking-tight">{title}</h1>
+            <p className="mt-1 text-sm font-semibold text-[#8E929E]">{meta}</p>
+          </div>
+          <button className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-3 text-sm font-black text-white hover:border-[#18C8FF]" onClick={onCancel}>
+            <RotateCcw size={17} /> Salir
+          </button>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function BigNumberDisplay({ value }: { value: string }) {
+  const size = value.length > 18 ? 'text-4xl sm:text-6xl lg:text-7xl' : value.length > 10 ? 'text-5xl sm:text-7xl lg:text-8xl' : 'text-7xl sm:text-8xl lg:text-9xl';
+  return (
+    <div key={value} className={`flash-number mx-auto grid min-h-64 max-w-5xl place-items-center rounded-3xl border border-[#18C8FF]/25 bg-[#050711] px-4 font-display font-black tracking-tight text-white shadow-[0_0_70px_rgba(24,200,255,0.14)] ${size}`}>
+      {value}
+    </div>
+  );
+}
+
+function KeyboardControls({ primaryLabel, onPrimary, onPrevious, onRestart, disabledPrimary }: { primaryLabel: string; onPrimary: () => void; onPrevious: () => void; onRestart: () => void; disabledPrimary?: boolean }) {
+  return (
+    <div className="mt-6 grid gap-3 sm:grid-cols-3">
+      <button className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 px-5 py-4 text-sm font-black text-white hover:border-[#18C8FF]" onClick={onPrevious}>
+        <ArrowLeft size={18} /> Anterior
+      </button>
+      <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#0A74FF] to-[#18C8FF] px-5 py-4 text-sm font-black text-white shadow-[0_0_34px_rgba(24,200,255,0.28)] disabled:opacity-45" disabled={disabledPrimary} onClick={onPrimary}>
+        {primaryLabel} <ArrowRight size={18} />
+      </button>
+      <button className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 px-5 py-4 text-sm font-black text-white hover:border-[#7C3AED]" onClick={onRestart}>
+        <RotateCcw size={18} /> Reiniciar
+      </button>
+      <p className="text-center text-xs font-bold text-[#8E929E] sm:col-span-3">Teclado: ← anterior · → siguiente · R reiniciar · Esc salir · Enter reiniciar</p>
+    </div>
+  );
+}
+
+function SessionStats({ items }: { items: Array<[string, string]> }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {items.map(([label, value]) => (
+        <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 text-white backdrop-blur-xl">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8E929E]">{label}</p>
+          <p className="font-display mt-1 break-words text-2xl font-black text-[#18C8FF]">{value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrainerX2({ config, elapsedMs, onSave, onCancel }: { config: DoubleX2Config; elapsedMs: number; onSave: (history: number[], stepDurations: number[], totalTimeMs: number) => void; onCancel: () => void }) {
+  const [history, setHistory] = useState<number[]>([config.start, config.start * 2]);
+  const [index, setIndex] = useState(1);
+  const [stepDurations, setStepDurations] = useState<number[]>([]);
+  const [lastStepAt, setLastStepAt] = useState(Date.now());
+  const [saved, setSaved] = useState(false);
+  const stepLimitReached = config.stepLimit !== 'infinite' && index >= config.stepLimit;
+  const currentValue = history[index] ?? config.start;
+  const historyPreview = history.slice(0, index + 1).map(formatCompactNumber).join(' → ');
+  const stepCount = Math.max(0, index);
+  const averageStepMs = stepDurations.length ? stepDurations.reduce((sum, value) => sum + value, 0) / stepDurations.length : 0;
+
+  const advance = useCallback(() => {
+    if (stepLimitReached) return;
+    const now = Date.now();
+    setSaved(false);
+    setStepDurations((current) => [...current, now - lastStepAt]);
+    setLastStepAt(now);
+    setHistory((current) => {
+      if (index + 1 < current.length) return current;
+      return [...current, current[index] * 2];
+    });
+    setIndex((value) => value + 1);
+  }, [index, lastStepAt, stepLimitReached]);
+
+  const back = useCallback(() => {
+    setSaved(false);
+    setIndex((value) => Math.max(0, value - 1));
+  }, []);
+
+  const restart = useCallback(() => {
+    setHistory([config.start, config.start * 2]);
+    setIndex(1);
+    setStepDurations([]);
+    setLastStepAt(Date.now());
+    setSaved(false);
+  }, [config.start]);
+
+  const save = useCallback(() => {
+    onSave(history.slice(0, index + 1), stepDurations, elapsedMs);
+    setSaved(true);
+  }, [elapsedMs, history, index, onSave, stepDurations]);
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        advance();
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        back();
+      }
+      if (event.key.toLowerCase() === 'r') {
+        event.preventDefault();
+        restart();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCancel();
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        restart();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [advance, back, onCancel, restart]);
+
+  return (
+    <TrainingShell
+      label="Multiplicar x2"
+      title={stepCount === 0 ? 'Base' : `Paso ${stepCount}`}
+      meta={`Inicio ${config.start} · ${config.stepLimit === 'infinite' ? 'sin límite' : `${config.stepLimit} pasos`}`}
+      onCancel={onCancel}
+    >
+      <div className="trainer-card-slide rounded-3xl border border-white/15 bg-white/[0.06] p-5 text-center shadow-[0_22px_70px_rgba(10,116,255,0.14)] sm:p-8">
+        <BigNumberDisplay value={formatCompactNumber(currentValue)} />
+        <div className="mx-auto mt-5 max-w-4xl truncate rounded-full border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-bold text-[#C5C8D6]">
+          {historyPreview}
+        </div>
+        <KeyboardControls
+          primaryLabel="Siguiente"
+          onPrimary={advance}
+          onPrevious={back}
+          onRestart={restart}
+          disabledPrimary={stepLimitReached}
+        />
+        <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+          <button className="rounded-xl border border-white/15 px-5 py-3 text-sm font-black text-white" onClick={onCancel}>Cambiar número</button>
+          <button className="rounded-xl bg-[#18C8FF] px-5 py-3 text-sm font-black text-[#050711]" onClick={save}>Guardar sesión</button>
+        </div>
+        {saved && <p className="mt-3 text-sm font-black text-emerald-300">Sesión guardada.</p>}
+      </div>
+      <SessionStats items={[
+        ['Pasos', String(stepCount)],
+        ['Máximo', formatCompactNumber(Math.max(...history.slice(0, index + 1)))],
+        ['Promedio', averageStepMs ? formatDuration(averageStepMs) : '--'],
+        ['Total', formatDuration(elapsedMs)],
+      ]} />
+    </TrainingShell>
   );
 }
 
@@ -816,7 +1263,7 @@ function OperationsTraining(props: {
   return (
     <section className="grid gap-5">
       <TrainingTop label={label} title={`Pregunta ${props.index + 1} / ${props.total}`} elapsedMs={props.elapsedMs} questionElapsedMs={props.questionElapsedMs} correct={props.correctCount} incorrect={props.incorrectCount} mode={modeLabel} progress={progress} onCancel={props.onCancel} />
-      <QuestionCard prompt={props.exercise.prompt} choices={props.exercise.choices} feedback={props.feedback} selectedKey={props.selectedKey} isLocked={props.isLocked} explanation={props.exercise.explanation} answerLabel={props.exercise.answerLabel} onSelect={props.onSelect} />
+      <QuestionCard prompt={props.exercise.prompt} choices={props.exercise.choices} feedback={props.feedback} selectedKey={props.selectedKey} isLocked={props.isLocked} explanation={props.exercise.explanation} answerLabel={props.exercise.answerLabel} responseTimeMs={props.questionElapsedMs} onSelect={props.onSelect} />
     </section>
   );
 }
@@ -860,14 +1307,14 @@ function FlashAnzanTraining(props: {
           </>
         )}
         {props.phase === 'answer' && (
-          <QuestionCard prompt="¿Cuál fue el acumulado final?" choices={props.exercise.choices} feedback={props.feedback} selectedKey={props.selectedKey} isLocked={props.isLocked} explanation={props.exercise.explanation} answerLabel={props.exercise.answerLabel} onSelect={props.onSelect} />
+          <QuestionCard prompt="¿Cuál fue el acumulado final?" choices={props.exercise.choices} feedback={props.feedback} selectedKey={props.selectedKey} isLocked={props.isLocked} explanation={props.exercise.explanation} answerLabel={props.exercise.answerLabel} responseTimeMs={props.answerElapsedMs} onSelect={props.onSelect} />
         )}
       </div>
     </section>
   );
 }
 
-function QuestionCard({ prompt, choices, feedback, selectedKey, isLocked, explanation, answerLabel, onSelect }: { prompt: string; choices: AnswerChoice[]; feedback: 'correct' | 'incorrect' | null; selectedKey: ChoiceKey | null; isLocked: boolean; explanation: string; answerLabel: string; onSelect: (choice: AnswerChoice) => void }) {
+function QuestionCard({ prompt, choices, feedback, selectedKey, isLocked, explanation, answerLabel, responseTimeMs, onSelect }: { prompt: string; choices: AnswerChoice[]; feedback: 'correct' | 'incorrect' | null; selectedKey: ChoiceKey | null; isLocked: boolean; explanation: string; answerLabel: string; responseTimeMs?: number; onSelect: (choice: AnswerChoice) => void }) {
   const isLong = prompt.length > 120;
   return (
     <div className={`trainer-card-slide rounded-lg border border-[#DCE5F2] bg-white p-5 text-center shadow-soft sm:p-8 ${feedback === 'correct' ? 'success-pulse' : feedback === 'incorrect' ? 'wrong-shake' : ''}`}>
@@ -882,6 +1329,7 @@ function QuestionCard({ prompt, choices, feedback, selectedKey, isLocked, explan
         <div className={`mx-auto mt-6 inline-flex max-w-full items-center gap-2 rounded-lg px-4 py-3 text-left text-sm font-black ${feedback === 'correct' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
           {feedback === 'correct' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
           {feedback === 'correct' ? `Correcto: ${answerLabel}` : `Correcta: ${answerLabel} · ${explanation}`}
+          {responseTimeMs ? <span className="ml-1 opacity-80">· Tiempo {formatDuration(responseTimeMs)}</span> : null}
         </div>
       )}
     </div>
@@ -905,6 +1353,23 @@ function ResultsScreen({ session, onRepeat, onSetup }: { session: TrainingSessio
   const generalElo = metrics.generalElo ?? getMetricElo(metrics);
   const modeElo = metrics.modeElo ?? getMetricElo(metrics);
   const eloDelta = metrics.eloDelta ?? metrics.streakImpact ?? 0;
+  const operationalItems: Array<[string, string]> = [
+    ['Entrenamiento', getSessionTitle(session)],
+    ['Configuración', getSessionDetail(session)],
+    ['Estado', metrics.status],
+    ['Sheets', session.syncStatus === 'synced' ? 'Enviado' : 'Pendiente'],
+    ['K de ajuste', String(metrics.kFactor ?? '--')],
+    ['Racha ELO', `${eloDelta >= 0 ? '+' : ''}${eloDelta}`],
+    ['Foco débil', metrics.weakestCategory],
+    ['Mejor área', metrics.bestCategory],
+    ['Resistencia', metrics.enduranceInsight],
+  ];
+  if (session.kind === 'doubleX2') {
+    operationalItems.splice(4, 0, ['Pasos', String(metrics.completed ?? metrics.correct)], ['Valor máximo', metrics.maxValue ? formatCompactNumber(metrics.maxValue) : '--'], ['Historial', metrics.historyPreview ?? '--']);
+  }
+  if (session.kind === 'multiplicationSprint' && metrics.chainFactorCount) {
+    operationalItems.splice(4, 0, ['Factores', `${metrics.chainFactorCount}`], ['Mejor racha', `${metrics.bestStreak ?? 0}`]);
+  }
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
       <div className="rounded-lg border border-[#0A244C] bg-[#040F20] p-6 text-white shadow-[0_24px_70px_rgba(4,15,32,0.22)] sm:p-8">
@@ -935,17 +1400,7 @@ function ResultsScreen({ session, onRepeat, onSetup }: { session: TrainingSessio
         </div>
       </div>
       <div className="grid gap-4">
-        <InfoCard title="Análisis operativo" items={[
-          ['Entrenamiento', getSessionTitle(session)],
-          ['Configuración', getSessionDetail(session)],
-          ['Estado', metrics.status],
-          ['Sheets', session.syncStatus === 'synced' ? 'Enviado' : 'Pendiente'],
-          ['K de ajuste', String(metrics.kFactor ?? '--')],
-          ['Racha ELO', `${eloDelta >= 0 ? '+' : ''}${eloDelta}`],
-          ['Foco débil', metrics.weakestCategory],
-          ['Mejor área', metrics.bestCategory],
-          ['Resistencia', metrics.enduranceInsight],
-        ]} />
+        <InfoCard title="Análisis operativo" items={operationalItems} />
       </div>
     </section>
   );

@@ -1,4 +1,4 @@
-import type { AnzanConfig, CepreConfig, DrillKind, MultiplicationConfig, SessionMetrics, TrainingConfig, TrainingSession, UserAnswer } from '../types';
+import type { AnzanConfig, CepreConfig, DoubleX2Config, DrillKind, MultiplicationConfig, SessionMetrics, TrainingConfig, TrainingSession, UserAnswer } from '../types';
 import { categoryLabels, cepreBlockLabels, levelLabels, multiplicationTypeLabels } from '../types';
 
 export const formatDuration = (milliseconds: number) => {
@@ -93,6 +93,13 @@ const anzanDifficulty = (config: AnzanConfig) => {
   return digitFactor * termFactor * speedFactor * operationFactor;
 };
 
+const doubleX2Difficulty = (config: DoubleX2Config, steps: number) => {
+  const startFactor = Math.max(0.85, Math.min(1.5, Math.log10(config.start + 10) / 2.4));
+  const stepFactor = 0.85 + Math.min(steps, 60) / 42;
+  const limitFactor = config.stepLimit === 'infinite' ? 1.16 : config.stepLimit >= 30 ? 1.1 : config.stepLimit >= 20 ? 1.04 : 0.96;
+  return startFactor * stepFactor * limitFactor;
+};
+
 const eloFromHistory = (sessions: TrainingSession[], kind?: DrillKind) => {
   const source = kind ? sessions.find((session) => session.kind === kind) : sessions[0];
   if (!source) return 1000;
@@ -126,6 +133,27 @@ const eloCapacity = (speedScore: number, accuracy: number, difficulty: number, k
 };
 
 const average = (values: number[]) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0);
+
+const bestRun = (answers: UserAnswer[]) => {
+  let current = 0;
+  let best = 0;
+  answers.forEach((answer) => {
+    current = answer.isCorrect ? current + 1 : 0;
+    best = Math.max(best, current);
+  });
+  return best;
+};
+
+export const formatCompactNumber = (value: number) => {
+  if (Number.isSafeInteger(value) && Math.abs(value) < 1_000_000_000_000) return String(value);
+  return value.toExponential(2).replace('+', '');
+};
+
+const compactHistory = (history: number[]) => {
+  const readable = history.map(formatCompactNumber);
+  if (readable.length <= 8) return readable.join(' → ');
+  return [...readable.slice(0, 4), '...', ...readable.slice(-3)].join(' → ');
+};
 
 const categoryRead = (answers: UserAnswer[]) => {
   const stats = answers.reduce(
@@ -273,6 +301,47 @@ export const calculateMultiplicationMetrics = (answers: UserAnswer[], totalTimeM
     improvementFocus: focus.slice(0, 3),
     status,
     enduranceInsight: endurance,
+    currentStreak: correct,
+    bestStreak: bestRun(answers),
+    chainFactorCount: config.multiplicationType === 'chain' ? config.chainFactorCount ?? 3 : undefined,
+    ...capacity,
+  };
+};
+
+export const calculateDoubleX2Metrics = (answers: UserAnswer[], totalTimeMs: number, config: DoubleX2Config, history: number[], sessions: TrainingSession[] = []): SessionMetrics => {
+  const steps = Math.max(0, history.length - 1);
+  const averageTimeMs = steps ? totalTimeMs / steps : 0;
+  const maxValue = Math.max(...history);
+  const speedScore = Math.round(Math.max(35, Math.min(100, steps * 4 + Math.max(0, 40 - averageTimeMs / 350))));
+  const capacity = eloCapacity(speedScore, 100, doubleX2Difficulty(config, steps), 'doubleX2', sessions);
+  const historyPreview = compactHistory(history);
+
+  return {
+    totalTimeMs,
+    averageTimeMs,
+    fastestTimeMs: averageTimeMs,
+    slowestTimeMs: averageTimeMs,
+    correct: steps,
+    incorrect: 0,
+    accuracy: 100,
+    speedScore,
+    recommendation: steps < 10 ? 'Haz una ronda de 10 pasos para crear base de duplicación.' : 'Sube el número inicial o usa límite infinito para resistencia mental.',
+    analysis: `Completaste ${steps} paso(s) desde ${config.start}. Valor máximo: ${formatCompactNumber(maxValue)}.`,
+    weakestCategory: 'Multiplicar x2',
+    bestCategory: 'Duplicación progresiva',
+    slowestPrompt: historyPreview,
+    improvementFocus: [
+      'Mantén el valor anterior como ancla visual antes de duplicar.',
+      'Agrupa por potencias de 2 cuando el número crezca.',
+      steps >= 20 ? 'Practica precisión verbal: di el número antes de avanzar.' : 'Busca 20 pasos sin romper ritmo.',
+    ],
+    status: steps >= 20 ? 'Duplicación fluida' : steps >= 10 ? 'Base activa' : 'Inicio medido',
+    enduranceInsight: config.stepLimit === 'infinite' ? 'Modo libre: registra cuando cierres una racha significativa.' : `Límite configurado: ${config.stepLimit} pasos.`,
+    completed: steps,
+    maxValue,
+    historyPreview,
+    currentStreak: steps,
+    bestStreak: steps,
     ...capacity,
   };
 };

@@ -1,4 +1,4 @@
-import type { AnzanConfig, Category, CepreConfig, MultiplicationConfig, TrainingConfig, TrainingSession, UserAnswer } from '../types';
+import type { AnzanConfig, Category, CepreConfig, DoubleX2Config, MultiplicationConfig, TrainingConfig, TrainingSession, UserAnswer } from '../types';
 import { categoryLabels, cepreBlockLabels, levelLabels, multiplicationTypeLabels } from '../types';
 import { formatDuration } from './scoring';
 
@@ -15,8 +15,8 @@ export interface SuggestedTraining {
   title: string;
   copy: string;
   badge: string;
-  kind: 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'cepreExam';
-  config: Partial<TrainingConfig> | Partial<AnzanConfig> | Partial<MultiplicationConfig> | Partial<CepreConfig>;
+  kind: 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'doubleX2' | 'cepreExam';
+  config: Partial<TrainingConfig> | Partial<AnzanConfig> | Partial<MultiplicationConfig> | Partial<DoubleX2Config> | Partial<CepreConfig>;
 }
 
 export interface TopicInsight {
@@ -51,6 +51,7 @@ const sessionElo = (session: TrainingSession) => session.metrics.generalElo ?? s
 const isOperationsConfig = (config: TrainingSession['config']): config is TrainingConfig => 'category' in config;
 const isCepreConfig = (config: TrainingSession['config']): config is CepreConfig => 'block' in config;
 const isMultiplicationConfig = (config: TrainingSession['config']): config is MultiplicationConfig => 'multiplicationType' in config;
+const isDoubleX2Config = (config: TrainingSession['config']): config is DoubleX2Config => 'start' in config && 'stepLimit' in config;
 const average = (values: number[]) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0);
 const clampPercent = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
@@ -111,6 +112,7 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
   const hasHundred = sessions.some((session) => isOperationsConfig(session.config) && session.config.amount >= 100);
   const hasCepre = sessions.some((session) => session.kind === 'cepreExam');
   const hasMultiplication = sessions.some((session) => session.kind === 'multiplicationSprint');
+  const hasDoubleX2 = sessions.some((session) => session.kind === 'doubleX2');
 
   return [
     {
@@ -126,6 +128,13 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
       description: 'Completa una ronda de multiplicaciones rápidas.',
       unlocked: hasMultiplication,
       progress: hasMultiplication ? 100 : 0,
+    },
+    {
+      id: 'double-x2',
+      title: 'Doble x2',
+      description: 'Completa una racha de duplicación progresiva.',
+      unlocked: hasDoubleX2,
+      progress: hasDoubleX2 ? 100 : 0,
     },
     {
       id: 'resistance',
@@ -185,6 +194,14 @@ const buildSuggestedTrainings = (weakTopic: string, averageAccuracy: number, cur
   const baselineLevel: TrainingConfig['level'] = currentElo >= 2400 ? 'level5' : currentElo >= 2000 ? 'level4' : currentElo >= 1500 ? 'level3' : currentElo >= 1000 ? 'level2' : 'level1';
 
   return [
+    {
+      id: 'double-x2',
+      title: 'Multiplicar x2',
+      copy: 'Duplicación sucesiva con flechas. Ideal para velocidad mental.',
+      badge: 'Flash',
+      kind: 'doubleX2',
+      config: { start: 12, stepLimit: 20 },
+    },
     {
       id: 'multiplication-sprint',
       title: 'Multiplicaciones rápidas',
@@ -287,7 +304,12 @@ export const displaySessionConfig = (session: TrainingSession) => {
   }
 
   if (session.kind === 'multiplicationSprint' && isMultiplicationConfig(session.config)) {
-    return `${session.config.amount} preguntas · ${multiplicationTypeLabels[session.config.multiplicationType]}`;
+    const factors = session.config.multiplicationType === 'chain' ? ` · ${session.config.chainFactorCount ?? 3} factores` : '';
+    return `${session.config.amount} preguntas · ${multiplicationTypeLabels[session.config.multiplicationType]}${factors}`;
+  }
+
+  if (session.kind === 'doubleX2' && isDoubleX2Config(session.config)) {
+    return `Inicio ${session.config.start} · ${session.metrics.completed ?? 0} pasos`;
   }
 
   if (session.kind === 'cepreExam' && isCepreConfig(session.config)) {

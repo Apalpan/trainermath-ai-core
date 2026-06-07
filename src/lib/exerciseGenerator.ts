@@ -7,6 +7,7 @@ import type {
   ChoiceKey,
   Exercise,
   Level,
+  PracticeTopic,
   TrainingConfig,
 } from '../types';
 
@@ -25,6 +26,25 @@ const concreteCategories: Exclude<Category, 'mixed'>[] = [
   'powers',
   'roots',
   'series',
+];
+
+export const practiceTopics: PracticeTopic[] = [
+  'addition',
+  'subtraction',
+  'multiplication',
+  'division',
+  'fractions',
+  'percentages',
+  'ratios',
+  'divisibility',
+  'averages',
+  'algebra',
+  'combined',
+  'powers',
+  'roots',
+  'series',
+  'chainMultiplication',
+  'doubleX2',
 ];
 
 const choiceKeys: ChoiceKey[] = ['A', 'B', 'C', 'D'];
@@ -275,8 +295,51 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
   return createExercise(category, `${units} × ${price}; pago ${paid}; cambio = ?`, answer, String(answer), `${units} × ${price} = ${price * units}. ${paid} - ${price * units} = ${answer}`);
 };
 
-export const generateExercises = (config: TrainingConfig): Exercise[] =>
-  generateUnique(config.amount, () => createByCategory(config.category === 'mixed' ? pick(concreteCategories) : config.category, config.level));
+const createChainedMultiplication = (level: Level, factorCount = 3): Exercise => {
+  const maxByLevel: Record<Level, number> = {
+    level1: 6,
+    level2: 7,
+    level3: 8,
+    level4: 9,
+    level5: 9,
+  };
+  const factors = Array.from({ length: factorCount }, () => rand(1, maxByLevel[level]));
+  const answer = factors.reduce((product, value) => product * value, 1);
+  const prompt = factors.join(' × ');
+  return createExercise('multiplication', prompt, answer, String(answer), `${prompt} = ${answer}`, numericChoices(answer, String(answer), 6), []);
+};
+
+const createDoubleX2Question = (level: Level): Exercise => {
+  const maxByLevel: Record<Level, number> = {
+    level1: 30,
+    level2: 80,
+    level3: 160,
+    level4: 320,
+    level5: 640,
+  };
+  const base = rand(2, maxByLevel[level]);
+  const answer = base * 2;
+  return createExercise('multiplication', `Doble de ${base}`, answer, String(answer), `${base} × 2 = ${answer}`, numericChoices(answer, String(answer), Math.max(4, Math.round(base * 0.08))), []);
+};
+
+const createByTopic = (topic: PracticeTopic, level: Level): Exercise => {
+  if (topic === 'mixed') return createByCategory(pick(concreteCategories), level);
+  if (topic === 'chainMultiplication') return createChainedMultiplication(level, 3);
+  if (topic === 'doubleX2') return createDoubleX2Question(level);
+  return createByCategory(topic, level);
+};
+
+const topicsForConfig = (config: TrainingConfig): PracticeTopic[] => {
+  const selected = config.topics?.filter(Boolean);
+  if (!selected || selected.length === 0) return config.category === 'mixed' ? practiceTopics : [config.category];
+  if (selected.includes('mixed')) return practiceTopics;
+  return selected;
+};
+
+export const generateExercises = (config: TrainingConfig): Exercise[] => {
+  const topics = topicsForConfig(config);
+  return generateUnique(config.amount, () => createByTopic(pick(topics), config.level));
+};
 
 const exerciseSignature = (exercise: Exercise) => `${exercise.category}|${exercise.prompt}|${exercise.answerLabel}`;
 

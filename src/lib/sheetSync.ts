@@ -71,6 +71,7 @@ const isAllowedSheetPayload = (payload: SheetPayload) => {
   const hasAllowedSession =
     payload.session.kind === 'flashAnzan'
     || payload.session.kind === 'multiplicationSprint'
+    || payload.session.kind === 'doubleX2'
     || blockOrCategory in categoryLabels
     || blockOrCategory in cepreBlockLabels
     || blockOrCategory in multiplicationTypeLabels;
@@ -100,8 +101,8 @@ const configValue = (session: TrainingSession, field: string) => {
 };
 
 export const buildSheetPayload = (session: TrainingSession): SheetPayload => {
-  const trainer = session.kind === 'cepreExam' ? 'Entrenador Examen CEPRE' : session.kind === 'flashAnzan' ? 'Flash Anzan' : session.kind === 'multiplicationSprint' ? 'Multiplicaciones rápidas' : 'Trainer Math 2.0';
-  const blockOrCategory = configValue(session, 'block') || configValue(session, 'category') || configValue(session, 'multiplicationType') || 'flashAnzan';
+  const trainer = session.kind === 'cepreExam' ? 'Entrenador Examen CEPRE' : session.kind === 'flashAnzan' ? 'Flash Anzan' : session.kind === 'multiplicationSprint' ? 'Multiplicaciones rápidas' : session.kind === 'doubleX2' ? 'Multiplicar x2' : 'Trainer Math 2.0';
+  const blockOrCategory = configValue(session, 'block') || configValue(session, 'category') || configValue(session, 'multiplicationType') || (session.kind === 'doubleX2' ? 'doubleX2' : 'flashAnzan');
   const amount = configValue(session, 'amount') || configValue(session, 'terms') || 1;
 
   return {
