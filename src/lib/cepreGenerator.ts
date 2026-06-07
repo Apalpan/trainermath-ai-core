@@ -85,8 +85,8 @@ const numberProblem = (level: Level): Exercise => {
   }
 
   if (type === 'mcm') {
-    const a = pick([6, 8, 9, 10, 12, 15]);
-    const b = pick([8, 12, 14, 15, 18, 20]);
+    const a = pick([6, 8, 9, 10, 12, 15, 16, 18, 20, 24, 28, 30, 36]);
+    const b = pick([8, 12, 14, 15, 18, 20, 21, 24, 27, 30, 32, 36, 42]);
     const answer = Math.abs(a * b) / gcd(a, b);
     return createCepreExercise({
       category: 'divisibility',
@@ -263,7 +263,7 @@ const algebraProblem = (level: Level): Exercise => {
   }
 
   if (type === 'factor') {
-    const root = rand(2, Math.round(8 * scale));
+    const root = rand(2, Math.round(28 * scale));
     return createCepreExercise({
       category: 'algebra',
       block: 'algebra',
@@ -334,5 +334,31 @@ const createByBlock = (block: CepreBlock, level: Level): Exercise => {
   ])();
 };
 
+const exerciseSignature = (exercise: Exercise) => `${exercise.block}|${exercise.topic}|${exercise.microtopic}|${exercise.prompt}|${exercise.answerLabel}`;
+
+const generateUnique = (amount: number, create: () => Exercise): Exercise[] => {
+  const exercises: Exercise[] = [];
+  const seen = new Set<string>();
+  const maxAttempts = Math.max(120, amount * 120);
+  let attempts = 0;
+
+  while (exercises.length < amount && attempts < maxAttempts) {
+    attempts += 1;
+    const exercise = create();
+    const signature = exerciseSignature(exercise);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    exercises.push(exercise);
+  }
+
+  while (exercises.length < amount) {
+    const exercise = create();
+    const variant = { ...exercise, id: crypto.randomUUID(), prompt: `${exercise.prompt} · ${exercises.length + 1}` };
+    exercises.push(variant);
+  }
+
+  return exercises;
+};
+
 export const generateCepreExercises = (config: CepreConfig): Exercise[] =>
-  Array.from({ length: config.amount }, () => createByBlock(config.block, config.level));
+  generateUnique(config.amount, () => createByBlock(config.block, config.level));

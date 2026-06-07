@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  Award,
   BarChart3,
   BookOpenCheck,
   Brain,
@@ -14,25 +13,19 @@ import {
   Cloud,
   Flame,
   Gauge,
-  LineChart,
   Medal,
   Play,
   RotateCcw,
-  ShieldCheck,
   Sparkles,
   Target,
-  Trophy,
-  Trash2,
-  TrendingUp,
   XCircle,
-  Zap,
 } from 'lucide-react';
 import { generateCepreExercises } from '../../lib/cepreGenerator';
 import { generateExercises, generateFlashAnzanExercise } from '../../lib/exerciseGenerator';
 import { calculateAnzanMetrics, calculateCepreMetrics, calculateMetrics, formatDuration } from '../../lib/scoring';
-import { analyzeSessions, displayPace, displaySessionConfig } from '../../lib/sessionAnalytics';
-import type { SuggestedTraining, TrainerInsights } from '../../lib/sessionAnalytics';
-import { clearSessions, loadSessions, saveSession, updateSessionSyncStatus } from '../../lib/storage';
+import { analyzeSessions, displaySessionConfig } from '../../lib/sessionAnalytics';
+import type { TrainerInsights } from '../../lib/sessionAnalytics';
+import { loadSessions, saveSession, updateSessionSyncStatus } from '../../lib/storage';
 import { flushSheetSync, getPendingSyncCount, getSheetEndpoint, queueSheetSync, setSheetEndpoint, TARGET_SHEET_URL } from '../../lib/sheetSync';
 import type {
   AnswerChoice,
@@ -128,26 +121,8 @@ const anzanPresets: Record<Exclude<AnzanPreset, 'custom'>, Pick<AnzanConfig, 'di
 };
 
 const productCards: Array<{ id: TrainerProduct; title: string; subtitle: string; icon: ReactNode }> = [
-  { id: 'math', title: 'TrainerMath', subtitle: 'Cálculo mental, Flash Anzan y resistencia', icon: <Calculator size={20} /> },
-  { id: 'cepre', title: 'Entrenador Examen CEPRE', subtitle: 'Números, operaciones y álgebra por microtema', icon: <BookOpenCheck size={20} /> },
-];
-
-const capabilities = [
-  { title: 'Cálculo mental', text: 'Automatiza operaciones base para no perder tiempo operativo.' },
-  { title: 'Patrones rápidos', text: 'Clasifica si es porcentaje, razón, fracción, serie o ecuación.' },
-  { title: 'Traducción algebraica', text: 'Convierte texto en ecuación antes de operar.' },
-  { title: 'Control numérico', text: 'Evita errores de signo, jerarquía y simplificación.' },
-  { title: 'Presión y control', text: 'Mide fatiga, velocidad y errores bajo cronómetro.' },
-];
-
-const weeklyPlan = [
-  'Lunes: números, fracciones, porcentajes, razones y MCD/MCM.',
-  'Martes: álgebra operativa, exponentes, productos notables y ecuaciones.',
-  'Miércoles: operaciones combinadas, potencias, raíces y series.',
-  'Jueves: problemas de números, porcentajes y regla de tres.',
-  'Viernes: álgebra aplicada, sistemas y polinomios.',
-  'Sábado: simulacro mixto de 50 a 100 preguntas.',
-  'Domingo: reparación de errores y repetición de fallas.',
+  { id: 'math', title: 'Operaciones', subtitle: 'Aritmética, álgebra y Flash Anzan', icon: <Calculator size={20} /> },
+  { id: 'cepre', title: 'CEPRE números + álgebra', subtitle: 'Práctica por microtema', icon: <BookOpenCheck size={20} /> },
 ];
 
 const getMetricElo = (metrics: TrainingSession['metrics']) => metrics.elo ?? Math.round(900 + (metrics.speedScore ?? 0) * 5);
@@ -192,8 +167,8 @@ const buildSessionTips = (session: TrainingSession) => {
   if (metrics.averageTimeMs > 7000) tips.push('Truco: reduce escritura mental; calcula primero la estructura y luego los números.');
   else tips.push('Truco: usa verificación inversa rápida para evitar errores por exceso de velocidad.');
 
-  tips.push(`Frase de control: precisión primero, velocidad después, resistencia al final.`);
-  return tips.slice(0, 5);
+  tips.push('Frase de control: precisión primero, velocidad después.');
+  return tips.slice(0, 3);
 };
 
 export default function TrainerMathApp() {
@@ -221,6 +196,7 @@ export default function TrainerMathApp() {
   const [sheetEndpoint, setSheetEndpointState] = useState('');
   const [syncPending, setSyncPending] = useState(0);
   const [syncMessage, setSyncMessage] = useState('Conecta Apps Script para enviar intentos al Sheet.');
+  const [showSheetPanel, setShowSheetPanel] = useState(false);
 
   useEffect(() => {
     setSessions(loadSessions());
@@ -476,18 +452,6 @@ export default function TrainerMathApp() {
     setIsLocked(false);
   };
 
-  const startSuggested = (route: SuggestedTraining) => {
-    if (route.kind === 'flashAnzan') {
-      startAnzan({ ...anzanConfig, ...(route.config as Partial<AnzanConfig>) });
-      return;
-    }
-    if (route.kind === 'cepreExam') {
-      startCepre({ ...cepreConfig, ...(route.config as Partial<CepreConfig>) });
-      return;
-    }
-    startOperations({ ...config, ...(route.config as Partial<TrainingConfig>) });
-  };
-
   const saveEndpointAndFlush = async () => {
     setSheetEndpoint(sheetEndpoint);
     const result = await flushSheetSync();
@@ -498,35 +462,40 @@ export default function TrainerMathApp() {
   return (
     <main className="min-h-screen bg-[#F4F7FF] text-[#0A244C]">
       <nav className="border-b border-white/10 bg-[#040F20] text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#2165FF] shadow-[0_0_28px_rgba(33,101,255,0.45)]">
               <Brain size={20} />
             </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">TrainerMath 2.0</p>
-              <p className="font-display text-lg font-black">Sistema de entrenamiento matemático</p>
+              <p className="font-display text-lg font-black">TrainerMath</p>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#7A8AA0]">by Alejandro Palpan</p>
             </div>
           </div>
-          <a className="hidden text-xs font-black uppercase tracking-[0.18em] text-[#8DB1FF] sm:block" href={TARGET_SHEET_URL} target="_blank" rel="noreferrer">
-            Sheet de intentos
-          </a>
+          <div className="flex items-center gap-2">
+            <button className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black uppercase tracking-[0.12em] transition ${showSheetPanel ? 'border-[#4D84FF] bg-[#2165FF] text-white' : 'border-white/15 text-[#8DB1FF] hover:border-[#4D84FF]'}`} onClick={() => setShowSheetPanel((value) => !value)}>
+              <Cloud size={16} /> Sheet / Endpoint
+            </button>
+          </div>
         </div>
       </nav>
 
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
         {screen === 'setup' && (
           <>
-            <Hero insights={insights} product={product} onStart={() => startSuggested(insights.suggestedTrainings[0])} onCepre={() => startCepre({ ...cepreConfig, block: 'mixed', amount: 30 })} />
+            <IntroBar />
+            {showSheetPanel && <SheetSyncPanel endpoint={sheetEndpoint} pending={syncPending} message={syncMessage} onEndpointChange={setSheetEndpointState} onSave={saveEndpointAndFlush} />}
             <ProductSwitcher product={product} onChange={(next) => { setProduct(next); setActiveDrill(next === 'cepre' ? 'cepreExam' : 'operations'); }} />
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
               <section className="grid content-start gap-4">
                 {product === 'math' ? (
                   <>
+                    <QuickStartPanel
+                      onStartEndurance={() => startOperations({ ...config, category: 'mixed', amount: 100, mode: 'mixed' })}
+                      onStartAnzan={() => startAnzan()}
+                    />
                     <DrillSwitcher activeDrill={activeDrill} onChange={setActiveDrill} />
-                    <SuggestedRoutes routes={insights.suggestedTrainings} onStartRoute={startSuggested} />
                     {activeDrill === 'operations' ? (
                       <TrainingSetup config={config} onChange={setConfig} onStart={() => startOperations()} />
                     ) : (
@@ -534,21 +503,14 @@ export default function TrainerMathApp() {
                     )}
                   </>
                 ) : (
-                  <>
-                    <CepreRoutes onStart={startCepre} />
-                    <CepreSetup config={cepreConfig} onChange={setCepreConfig} onStart={() => startCepre()} />
-                  </>
+                  <CepreSetup config={cepreConfig} onChange={setCepreConfig} onStart={() => startCepre()} />
                 )}
               </section>
               <aside className="grid content-start gap-4">
-                <ProgressDashboard insights={insights} onStartRoute={startSuggested} compact />
-                <AchievementsPanel achievements={insights.achievements} />
+                <RankingSummary insights={insights} />
                 <LeaderboardPanel sessions={insights.leaderboard} />
-                <HistoryPanel sessions={sessions} onClear={() => { clearSessions(); setSessions([]); }} />
               </aside>
             </div>
-            <CapabilityPanel />
-            <SheetSyncPanel endpoint={sheetEndpoint} pending={syncPending} message={syncMessage} onEndpointChange={setSheetEndpointState} onSave={saveEndpointAndFlush} />
           </>
         )}
 
@@ -605,70 +567,15 @@ export default function TrainerMathApp() {
   );
 }
 
-function Hero({ insights, product, onStart, onCepre }: { insights: TrainerInsights; product: TrainerProduct; onStart: () => void; onCepre: () => void }) {
-  return (
-    <section className="relative overflow-hidden rounded-lg border border-[#0A244C] bg-[#040F20] p-6 text-white shadow-[0_24px_70px_rgba(4,15,32,0.22)] sm:p-8 lg:p-10">
-      <div className="absolute inset-0 technical-grid opacity-35" />
-      <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <div>
-          <p className="mb-4 inline-flex rounded-md border border-[#2165FF]/35 bg-[#2165FF]/10 px-3 py-2 text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">
-            Clasificar - operar - despejar - verificar
-          </p>
-          <h1 className="font-display max-w-4xl text-4xl font-black leading-[0.98] tracking-tight sm:text-6xl">
-            TrainerMath 2.0 para operaciones rápidas y álgebra
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-[#C7D3E6]">
-            Dos entrenadores en una plataforma: cálculo mental con Flash Anzan y preparación tipo examen con números, operaciones, álgebra, ELO, reporte y registro en Sheets.
-          </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-5 py-3 text-sm font-black text-white transition hover:bg-[#4D84FF]" onClick={onStart}>
-              <Play size={18} /> Ruta recomendada
-            </button>
-            <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 px-5 py-3 text-sm font-black text-white transition hover:border-[#4D84FF]" onClick={onCepre}>
-              Diagnóstico números + álgebra <ChevronRight size={18} />
-            </button>
-          </div>
-        </div>
-        <HeroCommandPanel insights={insights} activeProduct={product} />
-      </div>
-    </section>
-  );
-}
-
-function HeroCommandPanel({ insights, activeProduct }: { insights: TrainerInsights; activeProduct: TrainerProduct }) {
-  return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.06] p-4 backdrop-blur">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8DB1FF]">Estado actual</p>
-          <h2 className="font-display mt-2 text-3xl font-black text-white">{insights.status}</h2>
-          <p className="mt-2 text-sm leading-6 text-[#C7D3E6]">{insights.risk}</p>
-        </div>
-        <span className="rounded-md bg-[#2165FF] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-white">{activeProduct === 'cepre' ? 'Examen' : 'Sprint'}</span>
-      </div>
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <MetricPill label="ELO actual" value={insights.currentElo ? insights.currentElo.toString() : '--'} />
-        <MetricPill label="Mejor ELO" value={insights.bestElo ? insights.bestElo.toString() : '--'} />
-        <MetricPill label="Racha" value={insights.streak.toString()} />
-        <MetricPill label="Preguntas" value={insights.totalQuestions.toString()} />
-      </div>
-      <div className="mt-5 rounded-lg border border-[#4D84FF]/35 bg-[#2165FF]/15 px-4 py-3 text-sm font-bold text-[#C7D3E6]">
-        <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-[#8DB1FF]">Próximo objetivo</span>
-        {insights.nextObjective}
-      </div>
-    </div>
-  );
-}
-
 function ProductSwitcher({ product, onChange }: { product: TrainerProduct; onChange: (product: TrainerProduct) => void }) {
   return (
     <section className="grid gap-3 lg:grid-cols-2">
       {productCards.map((item) => (
-        <button key={item.id} className={`rounded-lg border p-5 text-left shadow-soft transition hover:-translate-y-0.5 ${product === item.id ? 'border-[#2165FF] bg-[#040F20] text-white' : 'border-[#DCE5F2] bg-white text-[#0A244C] hover:border-[#4D84FF]'}`} onClick={() => onChange(item.id)}>
+        <button key={item.id} className={`rounded-lg border p-4 text-left shadow-soft transition hover:-translate-y-0.5 ${product === item.id ? 'border-[#2165FF] bg-[#040F20] text-white' : 'border-[#DCE5F2] bg-white text-[#0A244C] hover:border-[#4D84FF]'}`} onClick={() => onChange(item.id)}>
           <span className="flex items-start gap-4">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-[#2165FF] text-white">{item.icon}</span>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#2165FF] text-white">{item.icon}</span>
             <span>
-              <span className="block font-display text-2xl font-black">{item.title}</span>
+              <span className="block font-display text-lg font-black">{item.title}</span>
               <span className={`mt-1 block text-sm font-bold ${product === item.id ? 'text-[#C7D3E6]' : 'text-[#7A8AA0]'}`}>{item.subtitle}</span>
             </span>
           </span>
@@ -678,91 +585,38 @@ function ProductSwitcher({ product, onChange }: { product: TrainerProduct; onCha
   );
 }
 
-function ProgressDashboard({ insights, onStartRoute, compact = false }: { insights: TrainerInsights; onStartRoute: (route: SuggestedTraining) => void; compact?: boolean }) {
-  const unlocked = insights.achievements.filter((achievement) => achievement.unlocked).length;
-
-  if (compact) {
-    return (
-      <section className="rounded-lg border border-[#0A244C] bg-[#040F20] p-5 text-white shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">Estado</p>
-        <h2 className="font-display mt-1 text-2xl font-black">{insights.status}</h2>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <MetricPill label="ELO" value={insights.currentElo ? insights.currentElo.toString() : '--'} />
-          <MetricPill label="Precisión" value={insights.averageAccuracy ? `${insights.averageAccuracy}%` : '--'} />
-        </div>
-        <button className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-4 py-3 text-sm font-black text-white transition hover:bg-[#4D84FF]" onClick={() => onStartRoute(insights.suggestedTrainings[0])}>
-          <Zap size={18} /> Ruta sugerida
-        </button>
-        <p className="mt-3 text-xs leading-5 text-[#C7D3E6]">{insights.risk}</p>
-      </section>
-    );
-  }
-
+function IntroBar() {
   return (
-    <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-      <div className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-6">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Dashboard de progreso</p>
-            <h2 className="font-display mt-1 text-2xl font-black text-[#0A244C]">Evidencia, foco y estabilidad</h2>
-          </div>
-          <span className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#F4F7FF] px-3 py-2 text-sm font-black text-[#2165FF]"><Sparkles size={17} />{unlocked}/{insights.achievements.length} logros</span>
-        </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <DashboardMetric icon={<TrendingUp size={18} />} label="Precisión media" value={insights.averageAccuracy ? `${insights.averageAccuracy}%` : '--'} detail={insights.status} />
-          <DashboardMetric icon={<Clock3 size={18} />} label="Tiempo medio" value={displayPace(insights.averagePaceMs)} detail="por respuesta" />
-          <DashboardMetric icon={<Target size={18} />} label="Foco débil" value={insights.weakTopic} detail="prioridad de práctica" />
-          <DashboardMetric icon={<Trophy size={18} />} label="Mejor bloque" value={insights.bestTopic} detail="ventaja actual" />
-        </div>
-        <TopicBars topics={insights.topicInsights} />
-      </div>
-
-      <div className="rounded-lg border border-[#0A244C] bg-[#040F20] p-5 text-white shadow-[0_18px_52px_rgba(4,15,32,0.18)] sm:p-6">
-        <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8DB1FF]">Siguiente mejor acción</p>
-        <h2 className="font-display mt-1 text-2xl font-black">{insights.suggestedTrainings[0].title}</h2>
-        <p className="mt-2 text-sm leading-6 text-[#C7D3E6]">{insights.suggestedTrainings[0].copy}</p>
-        <button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-5 py-3 text-sm font-black text-white transition hover:bg-[#4D84FF]" onClick={() => onStartRoute(insights.suggestedTrainings[0])}>
-          <Zap size={18} /> Ejecutar ahora
-        </button>
-        <div className="mt-5 grid gap-2">
-          {insights.suggestedTrainings.slice(1, 4).map((route) => (
-            <button key={route.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-left text-sm font-black text-white transition hover:border-[#4D84FF]" onClick={() => onStartRoute(route)}>
-              <span>
-                <span className="block text-[11px] uppercase tracking-[0.16em] text-[#8DB1FF]">{route.badge}</span>
-                <span>{route.title}</span>
-              </span>
-              <ChevronRight size={17} />
-            </button>
-          ))}
-        </div>
-      </div>
+    <section className="rounded-lg border border-[#DCE5F2] bg-white px-5 py-4 shadow-soft">
+      <p className="text-sm font-bold leading-6 text-[#0A244C]">
+        Entrenador rápido de operaciones, álgebra y cálculo mental. Elige un modo, configura la ronda y empieza.
+      </p>
     </section>
   );
 }
 
-function TopicBars({ topics }: { topics: TrainerInsights['topicInsights'] }) {
-  const visibleTopics = topics.length ? topics.slice(0, 5) : [{ label: 'Sin historial', accuracy: 0, averageMs: 0, attempts: 0 }];
-
+function QuickStartPanel({ onStartEndurance, onStartAnzan }: { onStartEndurance: () => void; onStartAnzan: () => void }) {
   return (
-    <div className="mt-6 rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-[#7A8AA0]"><LineChart size={15} />Mapa de habilidad</p>
-        <p className="text-xs font-bold text-[#7A8AA0]">ordenado por prioridad</p>
-      </div>
-      <div className="grid gap-3">
-        {visibleTopics.map((topic) => (
-          <div key={topic.label} className="grid gap-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-black text-[#0A244C]">{topic.label}</span>
-              <span className="text-xs font-black text-[#7A8AA0]">{topic.accuracy ? `${topic.accuracy}% · ${displayPace(topic.averageMs)}` : 'pendiente'}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white">
-              <div className={`h-full rounded-full ${topic.accuracy >= 85 ? 'bg-emerald-500' : topic.accuracy >= 70 ? 'bg-[#2165FF]' : 'bg-rose-500'}`} style={{ width: `${topic.accuracy}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <section className="grid gap-3 sm:grid-cols-2">
+      <button className="group rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF]" onClick={onStartEndurance}>
+        <span className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#F4F7FF] text-[#2165FF] group-hover:bg-[#2165FF] group-hover:text-white"><Flame size={18} /></span>
+          <span>
+            <span className="block font-display text-lg font-black text-[#0A244C]">Resistencia 100</span>
+            <span className="mt-1 block text-sm font-semibold text-[#7A8AA0]">100 preguntas mixtas sin repetir.</span>
+          </span>
+        </span>
+      </button>
+      <button className="group rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF]" onClick={onStartAnzan}>
+        <span className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#F4F7FF] text-[#2165FF] group-hover:bg-[#2165FF] group-hover:text-white"><Brain size={18} /></span>
+          <span>
+            <span className="block font-display text-lg font-black text-[#0A244C]">Flash Anzan</span>
+            <span className="mt-1 block text-sm font-semibold text-[#7A8AA0]">Memoria visual para sumas y restas.</span>
+          </span>
+        </span>
+      </button>
+    </section>
   );
 }
 
@@ -776,7 +630,7 @@ function DrillSwitcher({ activeDrill, onChange }: { activeDrill: DrillKind; onCh
             <span className="grid h-11 w-11 place-items-center rounded-md bg-[#2165FF] text-white">{drill === 'operations' ? <Target size={20} /> : <Brain size={20} />}</span>
             <span>
               <span className="block font-display text-lg font-black">{drillLabels[drill]}</span>
-              <span className={`text-xs font-bold ${activeDrill === drill ? 'text-[#C7D3E6]' : 'text-[#7A8AA0]'}`}>{drill === 'operations' ? 'Mapa completo de habilidades' : 'Memoria visual para sumas y restas'}</span>
+              <span className={`text-xs font-bold ${activeDrill === drill ? 'text-[#C7D3E6]' : 'text-[#7A8AA0]'}`}>{drill === 'operations' ? 'Operaciones y álgebra' : 'Sumas y restas rápidas'}</span>
             </span>
           </button>
         ))}
@@ -785,53 +639,11 @@ function DrillSwitcher({ activeDrill, onChange }: { activeDrill: DrillKind; onCh
   );
 }
 
-function SuggestedRoutes({ routes, onStartRoute }: { routes: SuggestedTraining[]; onStartRoute: (route: SuggestedTraining) => void }) {
-  const icons = [<ShieldCheck size={18} />, <BookOpenCheck size={18} />, <Gauge size={18} />, <Flame size={18} />, <Brain size={18} />];
-  return (
-    <div className="grid gap-3 lg:grid-cols-2">
-      {routes.map((route, index) => (
-        <button key={route.id} className={`group min-h-28 rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF] ${index === 0 ? 'lg:col-span-2' : ''}`} onClick={() => onStartRoute(route)}>
-          <span className="flex items-start gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#F4F7FF] text-[#2165FF] transition group-hover:bg-[#2165FF] group-hover:text-white">{icons[index] ?? <Target size={18} />}</span>
-            <span className="min-w-0 flex-1">
-              <span className="mb-2 inline-flex rounded-md bg-[#040F20] px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">{route.badge}</span>
-              <span className="block font-display text-lg font-black leading-tight text-[#0A244C]">{route.title}</span>
-              <span className="mt-1 block text-sm font-semibold leading-5 text-[#7A8AA0]">{route.copy}</span>
-            </span>
-            <ChevronRight className="mt-1 shrink-0 text-[#7A8AA0] transition group-hover:text-[#2165FF]" size={18} />
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function CepreRoutes({ onStart }: { onStart: (config: CepreConfig) => void }) {
-  const routes: Array<{ title: string; text: string; config: CepreConfig; badge: string }> = [
-    { title: 'Diagnóstico numérico', text: 'Números, operaciones y álgebra para detectar el bloque débil.', badge: 'Base real', config: { ...defaultCepreConfig, block: 'mixed', amount: 30, mode: 'diagnostic' } },
-    { title: 'Operaciones foco', text: 'Fracciones, porcentajes, MCM, razones, promedios y series.', badge: 'Números', config: { ...defaultCepreConfig, block: 'numbers', amount: 20, mode: 'practice' } },
-    { title: 'Álgebra intensiva', text: 'Ecuaciones, sistemas, productos notables y polinomios.', badge: 'Álgebra', config: { ...defaultCepreConfig, block: 'algebra', amount: 20, mode: 'practice' } },
-    { title: 'Simulacro 100', text: 'Volumen largo para medir resistencia sin cambiar de temario.', badge: 'Resistencia', config: { ...defaultCepreConfig, block: 'mixed', amount: 100, mode: 'simulation', level: 'level3' } },
-  ];
-
-  return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {routes.map((route) => (
-        <button key={route.title} className="group rounded-lg border border-[#DCE5F2] bg-white p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-[#2165FF]" onClick={() => onStart(route.config)}>
-          <span className="mb-2 inline-flex rounded-md bg-[#040F20] px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">{route.badge}</span>
-          <span className="block font-display text-xl font-black text-[#0A244C]">{route.title}</span>
-          <span className="mt-1 block text-sm font-semibold leading-5 text-[#7A8AA0]">{route.text}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function TrainingSetup({ config, onChange, onStart }: { config: TrainingConfig; onChange: (config: TrainingConfig) => void; onStart: () => void }) {
   const setPartial = (partial: Partial<TrainingConfig>) => onChange({ ...config, ...partial });
   return (
     <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-7">
-      <HeaderBlock eyebrow="Mission control" title="Configura entrenamiento" text="Primero automatiza operación base. Luego sube a patrón, problema tipo, simulacro y registro de errores." action="Iniciar" onAction={onStart} />
+      <HeaderBlock eyebrow="Entrenamiento" title="Configura la ronda" text="Elige nivel, tema y cantidad. Marca A/B/C/D durante la prueba." action="Iniciar" onAction={onStart} />
       <div className="mt-6 grid gap-6">
         <Selector title="Nivel" items={levelOptions} labels={levelLabels} selected={config.level} onSelect={(level) => setPartial({ level })} />
         <Selector title="Bloque / tema" items={categoryOptions} labels={categoryLabels} selected={config.category} onSelect={(category) => setPartial({ category })} grid />
@@ -846,7 +658,7 @@ function CepreSetup({ config, onChange, onStart }: { config: CepreConfig; onChan
   const setPartial = (partial: Partial<CepreConfig>) => onChange({ ...config, ...partial });
   return (
     <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-7">
-      <HeaderBlock eyebrow="Exam trainer" title="Configura Examen CEPRE" text="Entrena solo números, operaciones y álgebra. Cada pregunta guarda microtema, tiempo, error y explicación." action="Iniciar examen" onAction={onStart} />
+      <HeaderBlock eyebrow="CEPRE" title="Números + álgebra" text="Práctica por nivel, microtema y tiempo." action="Iniciar" onAction={onStart} />
       <div className="mt-6 grid gap-6">
         <Selector title="Bloque" items={cepreBlockOptions} labels={cepreBlockLabels} selected={config.block} onSelect={(block) => setPartial({ block })} grid />
         <Selector title="Nivel" items={levelOptions} labels={levelLabels} selected={config.level} onSelect={(level) => setPartial({ level })} />
@@ -1084,7 +896,6 @@ function ResultsScreen({ session, onRepeat, onSetup }: { session: TrainingSessio
           ['Mejor área', metrics.bestCategory],
           ['Resistencia', metrics.enduranceInsight],
         ]} />
-        <QuestionReview answers={session.answers} />
       </div>
     </section>
   );
@@ -1109,74 +920,56 @@ function TipsPanel({ tips }: { tips: string[] }) {
 function SheetSyncPanel({ endpoint, pending, message, onEndpointChange, onSave }: { endpoint: string; pending: number; message: string; onEndpointChange: (endpoint: string) => void; onSave: () => void }) {
   return (
     <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft sm:p-6">
-      <details>
-        <summary className="cursor-pointer list-none">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Configuración técnica</p>
-              <h2 className="font-display mt-1 text-2xl font-black text-[#0A244C]">Google Sheets y endpoint</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#7A8AA0]">Este apartado solo se usa para conectar el registro automático. El entrenamiento funciona aunque no configures endpoint.</p>
-            </div>
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#F4F7FF] text-[#2165FF]"><Cloud size={22} /></span>
-          </div>
-        </summary>
-        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-          <div className="rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Estado de sincronización</p>
-            <p className="mt-2 text-sm leading-6 text-[#7A8AA0]">{message}</p>
-            <div className="mt-4 rounded-lg bg-white p-3">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Intentos pendientes</p>
-              <p className="font-display text-3xl font-black text-[#0A244C]">{pending}</p>
-            </div>
-          </div>
-          <div className="rounded-lg border border-[#DCE5F2] bg-white p-4">
-            <label className="block">
-              <span className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Endpoint Apps Script</span>
-              <input className="mt-2 w-full rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] px-3 py-3 text-sm font-semibold text-[#0A244C] outline-none focus:border-[#2165FF]" placeholder="https://script.google.com/macros/s/.../exec" value={endpoint} onChange={(event) => onEndpointChange(event.target.value)} />
-            </label>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-4 py-3 text-sm font-black text-white" onClick={onSave}>
-                Guardar y sincronizar
-              </button>
-              <a className="inline-flex flex-1 items-center justify-center rounded-lg border border-[#DCE5F2] px-4 py-3 text-sm font-black text-[#2165FF]" href={TARGET_SHEET_URL} target="_blank" rel="noreferrer">Abrir Sheet</a>
-            </div>
-            <p className="mt-3 text-xs leading-5 text-[#7A8AA0]">Pega aquí la URL terminada en <strong>/exec</strong>. Si no existe, los resultados se guardan localmente y quedan en cola.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#2165FF]">Sheet / Endpoint</p>
+          <p className="mt-1 text-sm font-semibold text-[#7A8AA0]">Conecta Apps Script solo si quieres enviar resultados al Sheet.</p>
+        </div>
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-[#F4F7FF] text-[#2165FF]"><Cloud size={20} /></span>
+      </div>
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+        <div className="rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-4">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Sincronización</p>
+          <p className="mt-2 text-sm leading-6 text-[#7A8AA0]">{message}</p>
+          <p className="mt-3 font-display text-2xl font-black text-[#0A244C]">{pending} pendiente(s)</p>
+        </div>
+        <div className="rounded-lg border border-[#DCE5F2] bg-white p-4">
+          <label className="block">
+            <span className="text-xs font-black uppercase tracking-[0.16em] text-[#7A8AA0]">Endpoint Apps Script</span>
+            <input className="mt-2 w-full rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] px-3 py-3 text-sm font-semibold text-[#0A244C] outline-none focus:border-[#2165FF]" placeholder="https://script.google.com/macros/s/.../exec" value={endpoint} onChange={(event) => onEndpointChange(event.target.value)} />
+          </label>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <button className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#2165FF] px-4 py-3 text-sm font-black text-white" onClick={onSave}>
+              Guardar
+            </button>
+            <a className="inline-flex flex-1 items-center justify-center rounded-lg border border-[#DCE5F2] px-4 py-3 text-sm font-black text-[#2165FF]" href={TARGET_SHEET_URL} target="_blank" rel="noreferrer">Abrir Sheet</a>
           </div>
         </div>
-      </details>
+      </div>
     </section>
   );
 }
 
-function AchievementsPanel({ achievements }: { achievements: TrainerInsights['achievements'] }) {
+function RankingSummary({ insights }: { insights: TrainerInsights }) {
   return (
-    <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Gamificación</p>
-          <h2 className="font-display text-xl font-black">Logros</h2>
-        </div>
-        <Award className="text-[#2165FF]" size={22} />
-      </div>
-      <div className="mt-4 grid gap-3">
-        {achievements.slice(0, 7).map((achievement) => (
-          <div key={achievement.id} className={`rounded-lg border p-3 ${achievement.unlocked ? 'border-emerald-200 bg-emerald-50' : 'border-[#DCE5F2] bg-[#F4F7FF]'}`}>
-            <div className="flex items-start gap-3">
-              <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-md text-white ${achievement.unlocked ? 'bg-emerald-500' : 'bg-[#7A8AA0]'}`}>
-                {achievement.unlocked ? <Trophy size={17} /> : <Medal size={17} />}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-black text-[#0A244C]">{achievement.title}</p>
-                <p className="mt-1 text-xs leading-5 text-[#7A8AA0]">{achievement.description}</p>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
-                  <div className={`h-full rounded-full ${achievement.unlocked ? 'bg-emerald-500' : 'bg-[#2165FF]'}`} style={{ width: `${achievement.progress}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+    <section className="rounded-lg border border-[#DCE5F2] bg-white p-4 shadow-soft">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#2165FF]">Resumen</p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <SmallMetric label="ELO" value={insights.currentElo ? String(insights.currentElo) : '--'} />
+        <SmallMetric label="Mejor" value={insights.bestElo ? String(insights.bestElo) : '--'} />
+        <SmallMetric label="Precisión" value={insights.averageAccuracy ? `${insights.averageAccuracy}%` : '--'} />
+        <SmallMetric label="Preguntas" value={String(insights.totalQuestions)} />
       </div>
     </section>
+  );
+}
+
+function SmallMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] px-3 py-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#7A8AA0]">{label}</p>
+      <p className="font-display mt-1 text-xl font-black text-[#0A244C]">{value}</p>
+    </div>
   );
 }
 
@@ -1202,60 +995,6 @@ function LeaderboardPanel({ sessions }: { sessions: TrainingSession[] }) {
                 <p className="truncate text-xs font-semibold text-[#7A8AA0]">{displaySessionConfig(session)}</p>
               </div>
               <span className="text-right font-display text-lg font-black text-[#8DB1FF]">{getMetricElo(session.metrics)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function CapabilityPanel() {
-  return (
-    <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Plan maestro</p>
-      <h2 className="font-display mt-1 text-xl font-black text-[#0A244C]">5 capacidades</h2>
-      <div className="mt-4 grid gap-3">
-        {capabilities.map((item) => (
-          <div key={item.title} className="rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-3">
-            <p className="text-sm font-black text-[#0A244C]">{item.title}</p>
-            <p className="mt-1 text-xs leading-5 text-[#7A8AA0]">{item.text}</p>
-          </div>
-        ))}
-      </div>
-      <details className="mt-4 rounded-lg border border-[#DCE5F2] bg-white p-3">
-        <summary className="cursor-pointer text-sm font-black text-[#0A244C]">Rutina semanal</summary>
-        <ul className="mt-3 grid gap-2 text-xs leading-5 text-[#7A8AA0]">
-          {weeklyPlan.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-      </details>
-    </section>
-  );
-}
-
-function HistoryPanel({ sessions, onClear }: { sessions: TrainingSession[]; onClear: () => void }) {
-  return (
-    <section className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Bitácora</p>
-          <h2 className="font-display text-xl font-black">Historial</h2>
-        </div>
-        {sessions.length > 0 && <button className="rounded-lg border border-[#DCE5F2] p-2 text-[#7A8AA0]" onClick={onClear} aria-label="Borrar historial"><Trash2 size={17} /></button>}
-      </div>
-      {sessions.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-[#DCE5F2] bg-[#F4F7FF] p-4 text-sm text-[#7A8AA0]">Haz un diagnóstico para crear tu línea base.</p>
-      ) : (
-        <div className="grid gap-3">
-          {sessions.slice(0, 8).map((session) => (
-            <div key={session.id} className="rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black">{getSessionTitle(session)}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#7A8AA0]">{new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(session.createdAt))}</p>
-                </div>
-                <span className="rounded-md bg-white px-3 py-1 text-sm font-black text-[#2165FF]">{getMetricElo(session.metrics)}</span>
-              </div>
             </div>
           ))}
         </div>
@@ -1351,21 +1090,6 @@ function NumberConfig({ label, value, min, max, step = 1, suffix, onChange }: { 
   );
 }
 
-function DashboardMetric({ icon, label, value, detail }: { icon: ReactNode; label: string; value: string; detail: string }) {
-  return (
-    <div className="rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-4">
-      <div className="mb-3 inline-flex rounded-md bg-white p-2 text-[#2165FF]">{icon}</div>
-      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#7A8AA0]">{label}</p>
-      <p className="mt-1 break-words font-display text-2xl font-black leading-tight text-[#0A244C]">{value}</p>
-      <p className="mt-1 text-xs font-semibold leading-5 text-[#7A8AA0]">{detail}</p>
-    </div>
-  );
-}
-
-function MetricPill({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-lg border border-white/10 bg-white/[0.07] px-3 py-3 text-center"><p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8DB1FF]">{label}</p><p className="font-display text-2xl font-black text-white">{value}</p></div>;
-}
-
 function TrainingMetric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return <div className="rounded-lg border border-white/10 bg-white/[0.06] p-3"><div className="mb-2 inline-flex text-[#8DB1FF]">{icon}</div><p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#7A8AA0]">{label}</p><p className="mt-1 break-words font-display text-2xl font-black tracking-tight text-white">{value}</p></div>;
 }
@@ -1377,21 +1101,4 @@ function ResultMetric({ label, value, tone = 'blue' }: { label: string; value: s
 
 function InfoCard({ title, items }: { title: string; items: Array<[string, string]> }) {
   return <div className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft"><p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">{title}</p><div className="mt-5 space-y-4">{items.map(([label, value]) => <div key={label} className="flex items-center justify-between gap-4 border-b border-[#DCE5F2] pb-3"><span className="text-sm text-[#7A8AA0]">{label}</span><span className="max-w-[210px] truncate text-right text-sm font-black text-[#0A244C]">{value}</span></div>)}</div></div>;
-}
-
-function QuestionReview({ answers }: { answers: UserAnswer[] }) {
-  return (
-    <div className="rounded-lg border border-[#DCE5F2] bg-white p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-[#2165FF]">Bitácora de errores y tiempo</p>
-      <div className="mt-4 max-h-[430px] space-y-2 overflow-auto pr-1">
-        {answers.map((answer, index) => (
-          <div key={`${answer.exerciseId}-${index}`} className="grid grid-cols-[36px_minmax(0,1fr)_82px] items-center gap-3 rounded-lg border border-[#DCE5F2] bg-[#F4F7FF] p-3">
-            <span className={`grid h-8 w-8 place-items-center rounded-md text-xs font-black text-white ${answer.isCorrect ? 'bg-emerald-500' : 'bg-rose-500'}`}>{index + 1}</span>
-            <div className="min-w-0"><p className="truncate text-sm font-black text-[#0A244C]">{answer.topic ? `${answer.topic}: ` : ''}{answer.prompt}</p><p className="truncate text-xs font-semibold text-[#7A8AA0]">Marcaste {answer.input}; correcta {answer.correctAnswer}</p></div>
-            <span className="text-right text-sm font-black text-[#0A244C]">{formatDuration(answer.responseTimeMs)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }

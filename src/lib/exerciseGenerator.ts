@@ -36,13 +36,29 @@ export const shuffle = <T,>(items: T[]) => [...items].sort(() => Math.random() -
 
 const rangeFor = (level: Level) => {
   const ranges = {
-    level1: { min: 1, max: 20, multiplier: 10, exponent: 2, denominator: 10 },
-    level2: { min: 5, max: 60, multiplier: 12, exponent: 3, denominator: 12 },
-    level3: { min: 10, max: 120, multiplier: 15, exponent: 3, denominator: 16 },
-    level4: { min: 20, max: 250, multiplier: 20, exponent: 4, denominator: 20 },
-    level5: { min: 30, max: 500, multiplier: 25, exponent: 5, denominator: 24 },
+    level1: { min: 1, max: 40, multiplier: 12, exponent: 2, denominator: 12 },
+    level2: { min: 5, max: 90, multiplier: 16, exponent: 3, denominator: 16 },
+    level3: { min: 10, max: 150, multiplier: 20, exponent: 3, denominator: 20 },
+    level4: { min: 20, max: 300, multiplier: 26, exponent: 4, denominator: 24 },
+    level5: { min: 30, max: 650, multiplier: 32, exponent: 5, denominator: 30 },
   };
   return ranges[level];
+};
+
+const rootMaxFor: Record<Level, number> = {
+  level1: 180,
+  level2: 240,
+  level3: 320,
+  level4: 420,
+  level5: 560,
+};
+
+const powerBaseMaxFor: Record<Level, number> = {
+  level1: 80,
+  level2: 110,
+  level3: 150,
+  level4: 220,
+  level5: 320,
 };
 
 export const gcd = (a: number, b: number): number => (!b ? Math.abs(a) : gcd(b, a % b));
@@ -195,8 +211,8 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
 
   if (category === 'divisibility') {
     const type = pick(['mcd', 'mcm', 'simplify'] as const);
-    const a = rand(2, 12) * 6;
-    const b = rand(2, 12) * 6;
+    const a = rand(2, 28 + range.multiplier) * pick([2, 3, 4, 5, 6]);
+    const b = rand(2, 28 + range.multiplier) * pick([2, 3, 4, 5, 6]);
     if (type === 'mcd') return createExercise(category, `MCD(${a}, ${b})`, gcd(a, b), String(gcd(a, b)), `MCD(${a}, ${b}) = ${gcd(a, b)}`);
     if (type === 'mcm') return createExercise(category, `MCM(${a}, ${b})`, lcm(a, b), String(lcm(a, b)), `MCM(${a}, ${b}) = ${lcm(a, b)}`, numericChoices(lcm(a, b), String(lcm(a, b)), 12));
     const numerator = a * rand(2, 5);
@@ -207,14 +223,14 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
   }
 
   if (category === 'averages') {
-    const values = [rand(10, 18), rand(10, 18), rand(10, 18)];
-    const target = rand(12, 18);
+    const values = [rand(8, range.max), rand(8, range.max), rand(8, range.max)];
+    const target = rand(10, Math.max(18, Math.round(range.max * 0.7)));
     const x = target * 4 - values.reduce((sum, value) => sum + value, 0);
     return createExercise(category, `Promedio de ${values.join(', ')} y x es ${target}. x=?`, x, String(x), `Suma total = ${target} × 4 = ${target * 4}. x = ${x}`);
   }
 
   if (category === 'powers') {
-    const base = rand(2, level === 'level5' ? 15 : 12);
+    const base = rand(2, powerBaseMaxFor[level]);
     const exponent = rand(2, range.exponent);
     const answer = Math.pow(base, exponent);
     const prompt = `${base}${superscripts[exponent] ?? `^${exponent}`}`;
@@ -222,7 +238,7 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
   }
 
   if (category === 'roots') {
-    const root = rand(2, level === 'level5' ? 30 : 22);
+    const root = rand(2, rootMaxFor[level]);
     const value = root * root;
     return createExercise(category, `√${value}`, root, String(root), `√${value} = ${root}`);
   }
@@ -260,7 +276,35 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
 };
 
 export const generateExercises = (config: TrainingConfig): Exercise[] =>
-  Array.from({ length: config.amount }, () => createByCategory(config.category === 'mixed' ? pick(concreteCategories) : config.category, config.level));
+  generateUnique(config.amount, () => createByCategory(config.category === 'mixed' ? pick(concreteCategories) : config.category, config.level));
+
+const exerciseSignature = (exercise: Exercise) => `${exercise.category}|${exercise.prompt}|${exercise.answerLabel}`;
+
+const generateUnique = (amount: number, create: () => Exercise): Exercise[] => {
+  const exercises: Exercise[] = [];
+  const seen = new Set<string>();
+  const maxAttempts = Math.max(120, amount * 120);
+  let attempts = 0;
+
+  while (exercises.length < amount && attempts < maxAttempts) {
+    attempts += 1;
+    const exercise = create();
+    const signature = exerciseSignature(exercise);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    exercises.push(exercise);
+  }
+
+  while (exercises.length < amount) {
+    const exercise = create();
+    const variantPrompt = `${exercise.prompt} · ${exercises.length + 1}`;
+    const variant = { ...exercise, id: crypto.randomUUID(), prompt: variantPrompt };
+    seen.add(exerciseSignature(variant));
+    exercises.push(variant);
+  }
+
+  return exercises;
+};
 
 export const generateFlashAnzanExercise = (config: AnzanConfig): AnzanExercise => {
   const min = config.digits <= 1 ? 1 : Math.pow(10, config.digits - 1);
