@@ -19,6 +19,12 @@ export const saveSession = (session: TrainingSession) => {
   return sessions;
 };
 
+export const updateSessionSyncStatus = (sessionId: string, syncStatus: TrainingSession['syncStatus']) => {
+  const sessions = loadSessions().map((session) => (session.id === sessionId ? { ...session, syncStatus } : session));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  return sessions;
+};
+
 export const clearSessions = () => {
   localStorage.removeItem(STORAGE_KEY);
 };

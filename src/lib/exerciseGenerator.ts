@@ -36,9 +36,9 @@ const concreteCategories: Exclude<Category, 'mixed'>[] = [
 const choiceKeys: ChoiceKey[] = ['A', 'B', 'C', 'D'];
 const superscripts: Record<number, string> = { 2: '²', 3: '³', 4: '⁴', 5: '⁵' };
 
-const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-const pick = <T,>(items: T[]) => items[rand(0, items.length - 1)];
-const shuffle = <T,>(items: T[]) => [...items].sort(() => Math.random() - 0.5);
+export const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+export const pick = <T,>(items: T[]) => items[rand(0, items.length - 1)];
+export const shuffle = <T,>(items: T[]) => [...items].sort(() => Math.random() - 0.5);
 
 const rangeFor = (level: Level) => {
   const ranges = {
@@ -51,37 +51,41 @@ const rangeFor = (level: Level) => {
   return ranges[level];
 };
 
-const gcd = (a: number, b: number): number => (!b ? Math.abs(a) : gcd(b, a % b));
+export const gcd = (a: number, b: number): number => (!b ? Math.abs(a) : gcd(b, a % b));
 const lcm = (a: number, b: number) => Math.abs(a * b) / gcd(a, b);
 const fact = (n: number): number => (n <= 1 ? 1 : n * fact(n - 1));
 const combination = (n: number, k: number) => fact(n) / (fact(k) * fact(n - k));
 
-const fractionText = (numerator: number, denominator: number) => {
+export const fractionText = (numerator: number, denominator: number) => {
   const divisor = gcd(numerator, denominator);
   return `${numerator / divisor}/${denominator / divisor}`;
 };
 
 const assignKeys = (drafts: Array<Omit<AnswerChoice, 'key'>>): AnswerChoice[] =>
-  shuffle(drafts).slice(0, 4).map((draft, index) => ({ ...draft, key: choiceKeys[index] }));
+  shuffle(drafts)
+    .slice(0, 4)
+    .map((draft, index) => ({ ...draft, key: choiceKeys[index] }));
 
 export const numericChoices = (answer: number, answerLabel = String(answer), scale = 1) => {
   const drafts: Array<Omit<AnswerChoice, 'key'>> = [{ label: answerLabel, value: answer, isCorrect: true }];
-  const values = new Set([answer]);
+  const values = new Set([Number(answer.toFixed(6))]);
   const base = Math.max(1, Math.round(Math.abs(answer) * 0.08), scale);
   const deltas = shuffle([-base * 3, -base * 2, -base, -Math.ceil(base / 2), Math.ceil(base / 2), base, base * 2, base * 3, -10, 10]);
 
   for (const delta of deltas) {
     if (drafts.length === 4) break;
     const candidate = answer + delta;
-    if (values.has(candidate)) continue;
-    values.add(candidate);
-    drafts.push({ label: String(candidate), value: candidate, isCorrect: false });
+    const key = Number(candidate.toFixed(6));
+    if (values.has(key)) continue;
+    values.add(key);
+    drafts.push({ label: Number.isInteger(candidate) ? String(candidate) : candidate.toFixed(2).replace(/\.?0+$/, ''), value: candidate, isCorrect: false });
   }
 
   while (drafts.length < 4) {
     const candidate = answer + rand(-base * 5, base * 5);
-    if (candidate === answer || values.has(candidate)) continue;
-    values.add(candidate);
+    const key = Number(candidate.toFixed(6));
+    if (candidate === answer || values.has(key)) continue;
+    values.add(key);
     drafts.push({ label: String(candidate), value: candidate, isCorrect: false });
   }
 
@@ -134,6 +138,7 @@ const createExercise = (
   choices,
   acceptedText,
   explanation,
+  trainer: 'math',
 });
 
 const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): Exercise => {
@@ -159,14 +164,14 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
     const special = pick([5, 11, 12, 25, rand(2, range.multiplier)]);
     const a = rand(2, range.multiplier + (level === 'level5' ? 10 : 0));
     const answer = a * special;
-    return createExercise(category, `${a} x ${special}`, answer, String(answer), `${a} x ${special} = ${answer}`);
+    return createExercise(category, `${a} × ${special}`, answer, String(answer), `${a} × ${special} = ${answer}`);
   }
 
   if (category === 'division') {
     const divisor = rand(2, range.multiplier);
     const quotient = rand(2, range.multiplier);
     const dividend = divisor * quotient;
-    return createExercise(category, `${dividend} / ${divisor}`, quotient, String(quotient), `${dividend} / ${divisor} = ${quotient}`);
+    return createExercise(category, `${dividend} ÷ ${divisor}`, quotient, String(quotient), `${dividend} ÷ ${divisor} = ${quotient}`);
   }
 
   if (category === 'fractions') {
@@ -184,7 +189,7 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
     const percent = pick([5, 10, 12.5, 15, 20, 25, 30, 35, 40, 50, 75]);
     const base = rand(4, 60) * 10;
     const answer = (base * percent) / 100;
-    return createExercise(category, `${percent}% de ${base}`, answer, String(answer), `${base} x ${percent}/100 = ${answer}`, numericChoices(answer, String(answer), 5));
+    return createExercise(category, `${percent}% de ${base}`, answer, String(answer), `${base} × ${percent}/100 = ${answer}`, numericChoices(answer, String(answer), 5));
   }
 
   if (category === 'ratios') {
@@ -193,7 +198,7 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
     const k = rand(4, 12);
     const total = (a + b) * k;
     const answer = b * k;
-    return createExercise(category, `A:B = ${a}:${b}; A+B=${total}; halla B`, answer, String(answer), `${a + b} partes = ${total}. 1 parte = ${k}. B = ${b} x ${k} = ${answer}`);
+    return createExercise(category, `A:B = ${a}:${b}; A+B=${total}; halla B`, answer, String(answer), `${a + b} partes = ${total}. 1 parte = ${k}. B = ${b} × ${k} = ${answer}`);
   }
 
   if (category === 'divisibility') {
@@ -213,7 +218,7 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
     const values = [rand(10, 18), rand(10, 18), rand(10, 18)];
     const target = rand(12, 18);
     const x = target * 4 - values.reduce((sum, value) => sum + value, 0);
-    return createExercise(category, `Promedio de ${values.join(', ')} y x es ${target}. x=?`, x, String(x), `Suma total = ${target} x 4 = ${target * 4}. x = ${x}`);
+    return createExercise(category, `Promedio de ${values.join(', ')} y x es ${target}. x=?`, x, String(x), `Suma total = ${target} × 4 = ${target * 4}. x = ${x}`);
   }
 
   if (category === 'powers') {
@@ -236,7 +241,7 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
     const b = rand(2, range.max);
     const total = a * x + b;
     const prompt = a === 1 ? `x + ${b} = ${total}` : `${a}x + ${b} = ${total}`;
-    return createExercise(category, prompt, x, String(x), `x = (${total} - ${b}) / ${a} = ${x}`);
+    return createExercise(category, prompt, x, String(x), `x = (${total} - ${b}) ÷ ${a} = ${x}`);
   }
 
   if (category === 'combined') {
@@ -244,7 +249,7 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
     const b = rand(2, range.multiplier);
     const c = rand(range.min, range.max);
     const answer = c + a * b;
-    return createExercise(category, `${c} + ${a} x ${b}`, answer, String(answer), `Primero multiplicas: ${a} x ${b} = ${a * b}. Luego ${c} + ${a * b} = ${answer}`);
+    return createExercise(category, `${c} + ${a} × ${b}`, answer, String(answer), `Primero multiplicas: ${a} × ${b} = ${a * b}. Luego ${c} + ${a * b} = ${answer}`);
   }
 
   if (category === 'series') {
@@ -261,7 +266,7 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
       const a = rand(35, 80);
       const b = rand(35, 80);
       const answer = 180 - a - b;
-      return createExercise(category, `Triangulo: angulos ${a}° y ${b}°. Tercer angulo`, answer, String(answer), `180 - ${a} - ${b} = ${answer}°`);
+      return createExercise(category, `Triángulo: ángulos ${a}° y ${b}°. Tercer ángulo`, answer, String(answer), `180 - ${a} - ${b} = ${answer}°`);
     }
     if (template === 'pythagoras') {
       const triples = [[3, 4, 5], [5, 12, 13], [6, 8, 10], [8, 15, 17], [7, 24, 25]];
@@ -271,7 +276,7 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
     const base = rand(6, 24);
     const height = rand(4, 18);
     const answer = (base * height) / 2;
-    return createExercise(category, `Area triangulo b=${base}, h=${height}`, answer, String(answer), `A = b x h / 2 = ${answer}`);
+    return createExercise(category, `Área de triángulo b=${base}, h=${height}`, answer, String(answer), `A = b × h ÷ 2 = ${answer}`);
   }
 
   if (category === 'trigonometry') {
@@ -289,12 +294,12 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
   if (category === 'statistics') {
     const values = shuffle([rand(2, 8), rand(9, 14), rand(15, 20), rand(21, 28)]).sort((a, b) => a - b);
     const answer = (values[1] + values[2]) / 2;
-    return createExercise(category, `Mediana de ${values.join(', ')}`, answer, String(answer), `Promedio de los dos centrales: (${values[1]} + ${values[2]}) / 2 = ${answer}`);
+    return createExercise(category, `Mediana de ${values.join(', ')}`, answer, String(answer), `Promedio de los dos centrales: (${values[1]} + ${values[2]}) ÷ 2 = ${answer}`);
   }
 
   if (category === 'probability') {
     const answer = 0.5;
-    return createExercise(category, `Probabilidad de obtener par en un dado`, answer, '1/2', `Favorables: 2, 4, 6. P = 3/6 = 1/2`, numericChoices(answer, '1/2', 1), ['1/2']);
+    return createExercise(category, 'Probabilidad de obtener par en un dado', answer, '1/2', 'Favorables: 2, 4, 6. P = 3/6 = 1/2', numericChoices(answer, '1/2', 1), ['1/2']);
   }
 
   if (category === 'combinatorics') {
@@ -308,7 +313,7 @@ const createByCategory = (category: Exclude<Category, 'mixed'>, level: Level): E
   const units = rand(2, 8);
   const paid = price * units + rand(5, 50);
   const answer = paid - price * units;
-  return createExercise(category, `${units} x ${price}; pago ${paid}; cambio = ?`, answer, String(answer), `${units} x ${price} = ${price * units}. ${paid} - ${price * units} = ${answer}`);
+  return createExercise(category, `${units} × ${price}; pago ${paid}; cambio = ?`, answer, String(answer), `${units} × ${price} = ${price * units}. ${paid} - ${price * units} = ${answer}`);
 };
 
 export const generateExercises = (config: TrainingConfig): Exercise[] =>

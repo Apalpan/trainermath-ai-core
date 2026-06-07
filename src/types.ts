@@ -25,10 +25,25 @@ export type Category =
 
 export type TrainingMode = 'accuracy' | 'speed' | 'mixed';
 export type ChoiceKey = 'A' | 'B' | 'C' | 'D';
-export type DrillKind = 'operations' | 'flashAnzan';
+export type TrainerProduct = 'math' | 'cepre';
+export type DrillKind = 'operations' | 'flashAnzan' | 'cepreExam';
 export type AnzanOperationMode = 'addition' | 'additionSubtraction';
 export type AnzanAdvanceMode = 'timed' | 'manual';
 export type AnzanPreset = 'easy' | 'medium' | 'hard' | 'expert' | 'custom';
+
+export type CepreBlock =
+  | 'numbers'
+  | 'algebra'
+  | 'geometry'
+  | 'readingComprehension'
+  | 'readingInterpretive'
+  | 'readingCritical'
+  | 'mixed';
+
+export type CepreMode = 'diagnostic' | 'practice' | 'simulation' | 'errorReview';
+export type CepreQuestionType = 'calculo' | 'problema' | 'visual' | 'lectura' | 'simulacro';
+export type ErrorType = 'calculo' | 'signo' | 'formula' | 'lectura' | 'planteamiento' | 'tiempo' | 'ninguno';
+export type SyncStatus = 'synced' | 'pending' | 'failed';
 
 export interface TrainingConfig {
   level: Level;
@@ -48,6 +63,14 @@ export interface AnzanConfig {
   preset: AnzanPreset;
 }
 
+export interface CepreConfig {
+  block: CepreBlock;
+  level: Level;
+  amount: number;
+  mode: CepreMode;
+  instantFeedback: boolean;
+}
+
 export interface AnswerChoice {
   key: ChoiceKey;
   label: string;
@@ -64,6 +87,14 @@ export interface Exercise {
   choices: AnswerChoice[];
   acceptedText?: string[];
   explanation: string;
+  trainer?: TrainerProduct;
+  block?: CepreBlock;
+  topic?: string;
+  microtopic?: string;
+  questionType?: CepreQuestionType;
+  skill?: string;
+  expectedError?: ErrorType;
+  targetTimeSec?: number;
 }
 
 export interface AnzanTerm {
@@ -92,6 +123,13 @@ export interface UserAnswer {
   isCorrect: boolean;
   answeredAtMs: number;
   responseTimeMs: number;
+  trainer?: TrainerProduct;
+  block?: CepreBlock;
+  topic?: string;
+  microtopic?: string;
+  questionType?: CepreQuestionType;
+  errorType?: ErrorType;
+  explanation?: string;
 }
 
 export interface SessionMetrics {
@@ -120,9 +158,10 @@ export interface TrainingSession {
   id: string;
   createdAt: string;
   kind: DrillKind;
-  config: TrainingConfig | AnzanConfig;
+  config: TrainingConfig | AnzanConfig | CepreConfig;
   metrics: SessionMetrics;
   answers: UserAnswer[];
+  syncStatus?: SyncStatus;
 }
 
 export const categoryLabels: Record<Category, string> = {
@@ -134,7 +173,7 @@ export const categoryLabels: Record<Category, string> = {
   powers: 'Potencias',
   roots: 'Raíces',
   algebra: 'Álgebra básica',
-  combined: 'Combinadas',
+  combined: 'Operaciones combinadas',
   percentages: 'Porcentajes',
   ratios: 'Razones y regla de tres',
   divisibility: 'MCD, MCM y divisibilidad',
@@ -166,6 +205,7 @@ export const modeLabels: Record<TrainingMode, string> = {
 export const drillLabels: Record<DrillKind, string> = {
   operations: 'Entrenamiento matemático',
   flashAnzan: 'Flash Anzan',
+  cepreExam: 'Entrenador Examen CEPRE',
 };
 
 export const anzanOperationLabels: Record<AnzanOperationMode, string> = {
@@ -174,7 +214,7 @@ export const anzanOperationLabels: Record<AnzanOperationMode, string> = {
 };
 
 export const anzanAdvanceLabels: Record<AnzanAdvanceMode, string> = {
-  timed: 'Aparición por tiempo',
+  timed: 'Aparición automática',
   manual: 'Mover con flechas',
 };
 
@@ -184,4 +224,21 @@ export const anzanPresetLabels: Record<AnzanPreset, string> = {
   hard: 'Difícil',
   expert: 'Experto',
   custom: 'Manual',
+};
+
+export const cepreBlockLabels: Record<CepreBlock, string> = {
+  numbers: 'Números y operaciones',
+  algebra: 'Álgebra',
+  geometry: 'Geometría y medida',
+  readingComprehension: 'Lectura comprensiva',
+  readingInterpretive: 'Lectura interpretativa',
+  readingCritical: 'Lectura crítica',
+  mixed: 'Simulacro mixto',
+};
+
+export const cepreModeLabels: Record<CepreMode, string> = {
+  diagnostic: 'Diagnóstico',
+  practice: 'Práctica focalizada',
+  simulation: 'Simulacro',
+  errorReview: 'Reparación de errores',
 };

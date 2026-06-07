@@ -1,5 +1,5 @@
-import type { AnzanConfig, Category, TrainingConfig, TrainingSession, UserAnswer } from '../types';
-import { categoryLabels, levelLabels } from '../types';
+import type { AnzanConfig, Category, CepreConfig, TrainingConfig, TrainingSession, UserAnswer } from '../types';
+import { categoryLabels, cepreBlockLabels, levelLabels } from '../types';
 import { formatDuration } from './scoring';
 
 export interface Achievement {
@@ -15,8 +15,8 @@ export interface SuggestedTraining {
   title: string;
   copy: string;
   badge: string;
-  kind: 'operations' | 'flashAnzan';
-  config: Partial<TrainingConfig> | Partial<AnzanConfig>;
+  kind: 'operations' | 'flashAnzan' | 'cepreExam';
+  config: Partial<TrainingConfig> | Partial<AnzanConfig> | Partial<CepreConfig>;
 }
 
 export interface TopicInsight {
@@ -48,11 +48,9 @@ export interface TrainerInsights {
 }
 
 const sessionElo = (session: TrainingSession) => session.metrics.elo ?? Math.round(900 + (session.metrics.speedScore ?? 0) * 5);
-
 const isOperationsConfig = (config: TrainingSession['config']): config is TrainingConfig => 'category' in config;
-
+const isCepreConfig = (config: TrainingSession['config']): config is CepreConfig => 'block' in config;
 const average = (values: number[]) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0);
-
 const clampPercent = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
 const currentWeekCount = (sessions: TrainingSession[]) => {
@@ -69,20 +67,23 @@ const currentStreak = (sessions: TrainingSession[]) => {
   return streak;
 };
 
+const answerLabel = (answer: UserAnswer) => answer.topic || categoryLabels[answer.category];
+
 const topicRead = (sessions: TrainingSession[]) => {
-  const stats = new Map<Category, { correct: number; total: number; time: number }>();
+  const stats = new Map<string, { correct: number; total: number; time: number }>();
 
   sessions.flatMap((session) => session.answers).forEach((answer: UserAnswer) => {
-    const current = stats.get(answer.category) ?? { correct: 0, total: 0, time: 0 };
+    const label = answerLabel(answer);
+    const current = stats.get(label) ?? { correct: 0, total: 0, time: 0 };
     current.correct += answer.isCorrect ? 1 : 0;
     current.total += 1;
     current.time += answer.responseTimeMs;
-    stats.set(answer.category, current);
+    stats.set(label, current);
   });
 
-  const insights = Array.from(stats.entries())
-    .map(([category, value]) => ({
-      label: categoryLabels[category],
+  return Array.from(stats.entries())
+    .map(([label, value]) => ({
+      label,
       accuracy: clampPercent((value.correct / Math.max(1, value.total)) * 100),
       averageMs: value.time / Math.max(1, value.total),
       attempts: value.total,
@@ -91,8 +92,6 @@ const topicRead = (sessions: TrainingSession[]) => {
       if (a.accuracy !== b.accuracy) return a.accuracy - b.accuracy;
       return b.averageMs - a.averageMs;
     });
-
-  return insights;
 };
 
 const trendRead = (sessions: TrainingSession[]) => {
@@ -109,6 +108,8 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
   const bestAccuracy = Math.max(0, ...sessions.map((session) => session.metrics.accuracy));
   const hasFlash = sessions.some((session) => session.kind === 'flashAnzan');
   const hasHundred = sessions.some((session) => isOperationsConfig(session.config) && session.config.amount >= 100);
+  const hasCepre = sessions.some((session) => session.kind === 'cepreExam');
+  const hasReading = sessions.some((session) => session.answers.some((answer) => answer.questionType === 'lectura'));
 
   return [
     {
@@ -154,6 +155,20 @@ const buildAchievements = (sessions: TrainingSession[], totalQuestions: number, 
       progress: hasFlash ? 100 : 0,
     },
     {
+      id: 'cepre',
+      title: 'Modo examen',
+      description: 'Completa un entrenamiento CEPRE.',
+      unlocked: hasCepre,
+      progress: hasCepre ? 100 : 0,
+    },
+    {
+      id: 'reading',
+      title: 'Lectura activa',
+      description: 'Resuelve al menos una ronda de lectura.',
+      unlocked: hasReading,
+      progress: hasReading ? 100 : 0,
+    },
+    {
       id: 'volume',
       title: 'Volumen 500',
       description: 'Acumula 500 preguntas entrenadas.',
@@ -168,7 +183,7 @@ const buildSuggestedTrainings = (weakTopic: string, averageAccuracy: number, cur
   const needsPrecision = averageAccuracy > 0 && averageAccuracy < 82;
   const baselineLevel: TrainingConfig['level'] = currentElo >= 1550 ? 'level4' : currentElo >= 1300 ? 'level3' : currentElo >= 1100 ? 'level2' : 'level1';
 
-  const routes: SuggestedTraining[] = [
+  return [
     {
       id: 'adaptive-focus',
       title: currentElo ? (needsPrecision ? 'Recuperar precisión' : `Refuerzo: ${weakTopic}`) : 'Diagnóstico integral',
@@ -176,6 +191,14 @@ const buildSuggestedTrainings = (weakTopic: string, averageAccuracy: number, cur
       badge: 'Recomendado',
       kind: 'operations',
       config: { level: currentElo ? baselineLevel : 'level2', category: currentElo ? weakCategory : 'mixed', amount: currentElo ? (needsPrecision ? 20 : 25) : 40, mode: needsPrecision ? 'accuracy' : 'mixed' },
+    },
+    {
+      id: 'cepre-diagnostic',
+      title: 'Diagnóstico examen CEPRE',
+      copy: '30 preguntas mixtas con matemática y lectura para detectar bloque débil.',
+      badge: 'Examen',
+      kind: 'cepreExam',
+      config: { level: baselineLevel, block: 'mixed', amount: 30, mode: 'diagnostic' },
     },
     {
       id: 'speed-sprint',
@@ -194,14 +217,6 @@ const buildSuggestedTrainings = (weakTopic: string, averageAccuracy: number, cur
       config: { level: 'level3', category: 'mixed', amount: 100, mode: 'mixed' },
     },
     {
-      id: 'algebra-track',
-      title: 'Álgebra aplicada',
-      copy: 'Despejes y traducción rápida para fortalecer razonamiento simbólico.',
-      badge: 'Álgebra',
-      kind: 'operations',
-      config: { level: baselineLevel, category: 'algebra', amount: 25, mode: 'mixed' },
-    },
-    {
       id: 'flash-memory',
       title: 'Flash Anzan',
       copy: 'Memoria operativa y acumulado mental con presión visual.',
@@ -210,8 +225,6 @@ const buildSuggestedTrainings = (weakTopic: string, averageAccuracy: number, cur
       config: { digits: currentElo >= 1450 ? 3 : 2, terms: currentElo >= 1450 ? 10 : 8, displayMs: currentElo >= 1450 ? 550 : 750, operationMode: 'additionSubtraction', advanceMode: 'timed', preset: 'custom' },
     },
   ];
-
-  return routes;
 };
 
 export const analyzeSessions = (sessions: TrainingSession[]): TrainerInsights => {
@@ -286,6 +299,10 @@ export const displayPace = (milliseconds: number) => (milliseconds ? formatDurat
 export const displaySessionConfig = (session: TrainingSession) => {
   if (session.kind === 'flashAnzan' && 'digits' in session.config) {
     return `${session.config.terms} números · ${session.config.digits} dígitos`;
+  }
+
+  if (session.kind === 'cepreExam' && isCepreConfig(session.config)) {
+    return `${session.config.amount} preguntas · ${cepreBlockLabels[session.config.block]}`;
   }
 
   if ('amount' in session.config) {
