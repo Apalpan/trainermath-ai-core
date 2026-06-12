@@ -11,11 +11,14 @@ import {
   ChevronRight,
   Clock3,
   Cloud,
+  Cpu,
   Gauge,
   Medal,
+  Moon,
   Play,
   RotateCcw,
   Sparkles,
+  Sun,
   Target,
   XCircle,
 } from 'lucide-react';
@@ -69,8 +72,10 @@ import {
 type Screen = 'setup' | 'training' | 'results';
 type AnzanPhase = 'sequence' | 'answer';
 type X2Phase = 'setup' | 'running';
+type TrainerTheme = 'dark' | 'light';
 
 const TOPIC_SELECTION_KEY = 'trainermath-v2:selected-topics';
+const THEME_KEY = 'trainermath-v2:theme';
 
 const defaultConfig: TrainingConfig = {
   level: 'level1',
@@ -198,6 +203,22 @@ const writeStoredTopics = (topics: PracticeTopic[]) => {
   }
 };
 
+const readStoredTheme = (): TrainerTheme => {
+  try {
+    return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+};
+
+const writeStoredTheme = (theme: TrainerTheme) => {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    // localStorage can fail in restricted browser contexts.
+  }
+};
+
 const isCepreConfig = (config: TrainingSession['config']): config is CepreConfig => 'block' in config;
 const isMultiplicationConfig = (config: TrainingSession['config']): config is MultiplicationConfig => 'multiplicationType' in config;
 const isDoubleX2Config = (config: TrainingSession['config']): config is DoubleX2Config => 'start' in config && 'stepLimit' in config;
@@ -260,6 +281,7 @@ const buildSessionTips = (session: TrainingSession) => {
 
 export default function TrainerMathApp() {
   const [screen, setScreen] = useState<Screen>('setup');
+  const [theme, setTheme] = useState<TrainerTheme>(() => readStoredTheme());
   const [product, setProduct] = useState<TrainerProduct>('math');
   const [activeDrill, setActiveDrill] = useState<DrillKind>('operations');
   const [config, setConfig] = useState<TrainingConfig>(defaultConfig);
@@ -304,6 +326,10 @@ export default function TrainerMathApp() {
   useEffect(() => {
     if (config.topics) writeStoredTopics(config.topics);
   }, [config.topics]);
+
+  useEffect(() => {
+    writeStoredTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     if (screen !== 'training' || !startedAt) return;
@@ -644,19 +670,28 @@ export default function TrainerMathApp() {
   };
 
   return (
-    <main className="trainer-math min-h-screen bg-[#050711] text-white">
+    <main className={`trainer-math trainer-theme-${theme} min-h-screen text-white`}>
       <nav className="border-b border-white/10 bg-[#040F20] text-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-[#2165FF] shadow-[0_0_28px_rgba(33,101,255,0.45)]">
-              <Brain size={20} />
+              <Cpu size={20} />
             </div>
             <div>
               <p className="font-display text-lg font-black">Trainer Math 2.0</p>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#7A8AA0]">by Alejandro Palpan</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#7A8AA0]">Neural core · by Alejandro Palpan</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-[#8DB1FF] transition hover:border-[#4D84FF]"
+              onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
+              aria-pressed={theme === 'light'}
+              aria-label={`Cambiar a modo ${theme === 'dark' ? 'claro' : 'oscuro'}`}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
             <button className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black uppercase tracking-[0.12em] transition ${showSheetPanel ? 'border-[#4D84FF] bg-[#2165FF] text-white' : 'border-white/15 text-[#8DB1FF] hover:border-[#4D84FF]'}`} onClick={() => setShowSheetPanel((value) => !value)}>
               <Cloud size={16} /> Sheet / Endpoint
             </button>

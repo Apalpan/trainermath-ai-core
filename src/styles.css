@@ -40,37 +40,124 @@ button:disabled {
 .trainer-math {
   --tm-bg: #050711;
   --tm-bg-2: #080d1b;
+  --tm-bg-3: #050711;
+  --tm-nav: rgba(4, 15, 32, 0.9);
   --tm-card: rgba(16, 20, 38, 0.82);
-  --tm-card-strong: #101426;
+  --tm-card-strong: rgba(16, 20, 38, 0.96);
+  --tm-card-soft: rgba(255, 255, 255, 0.07);
   --tm-border: rgba(255, 255, 255, 0.14);
-  --tm-blue: #0a74ff;
-  --tm-cyan: #18c8ff;
-  --tm-violet: #7c3aed;
+  --tm-border-strong: rgba(255, 255, 255, 0.24);
+  --tm-blue: #16ff7a;
+  --tm-cyan: #35ffd2;
+  --tm-violet: #b7ff3c;
   --tm-text: #ffffff;
-  --tm-muted: #c5c8d6;
-  --tm-soft: #8e929e;
-  background:
-    radial-gradient(circle at 20% 8%, rgba(10, 116, 255, 0.26), transparent 28%),
-    radial-gradient(circle at 84% 18%, rgba(124, 58, 237, 0.2), transparent 28%),
-    linear-gradient(180deg, var(--tm-bg), var(--tm-bg-2) 56%, #050711);
+  --tm-on-accent: #02120a;
+  --tm-muted: #c9ffdf;
+  --tm-soft: #8aa99a;
+  --tm-grid: rgba(53, 255, 210, 0.06);
+  --tm-glow: rgba(22, 255, 122, 0.22);
+  --tm-glow-2: rgba(53, 255, 210, 0.16);
+  --tm-shadow: rgba(0, 0, 0, 0.34);
+  --tm-danger-bg: rgba(244, 63, 94, 0.14);
+  --tm-danger-text: #fecdd3;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
   color: var(--tm-text);
+  background:
+    radial-gradient(circle at 16% 9%, var(--tm-glow), transparent 30%),
+    radial-gradient(circle at 84% 14%, var(--tm-glow-2), transparent 28%),
+    radial-gradient(circle at 52% 110%, rgba(183, 255, 60, 0.09), transparent 32%),
+    linear-gradient(180deg, var(--tm-bg), var(--tm-bg-2) 54%, var(--tm-bg-3));
 }
 
-.trainer-math::before {
+.trainer-theme-dark {
+  --tm-bg: #020704;
+  --tm-bg-2: #04110c;
+  --tm-bg-3: #010403;
+  --tm-nav: rgba(1, 10, 6, 0.88);
+  --tm-card: rgba(7, 23, 16, 0.82);
+  --tm-card-strong: rgba(6, 31, 19, 0.96);
+  --tm-card-soft: rgba(22, 255, 122, 0.075);
+  --tm-border: rgba(82, 255, 168, 0.17);
+  --tm-border-strong: rgba(82, 255, 168, 0.34);
+  --tm-blue: #15ff7d;
+  --tm-cyan: #32ffd2;
+  --tm-violet: #a8ff37;
+  --tm-text: #f4fff9;
+  --tm-on-accent: #02120a;
+  --tm-muted: #caffdf;
+  --tm-soft: #8da898;
+  --tm-grid: rgba(53, 255, 210, 0.065);
+  --tm-glow: rgba(21, 255, 125, 0.22);
+  --tm-glow-2: rgba(50, 255, 210, 0.15);
+  --tm-shadow: rgba(0, 0, 0, 0.42);
+}
+
+.trainer-theme-light {
+  --tm-bg: #f4fff7;
+  --tm-bg-2: #e9fff1;
+  --tm-bg-3: #f7fff9;
+  --tm-nav: rgba(247, 255, 250, 0.84);
+  --tm-card: rgba(255, 255, 255, 0.82);
+  --tm-card-strong: rgba(247, 255, 250, 0.95);
+  --tm-card-soft: rgba(4, 112, 58, 0.075);
+  --tm-border: rgba(4, 112, 58, 0.16);
+  --tm-border-strong: rgba(4, 112, 58, 0.28);
+  --tm-blue: #04a857;
+  --tm-cyan: #00b980;
+  --tm-violet: #5fc900;
+  --tm-text: #042114;
+  --tm-on-accent: #ffffff;
+  --tm-muted: #14452c;
+  --tm-soft: #5a7969;
+  --tm-grid: rgba(4, 112, 58, 0.055);
+  --tm-glow: rgba(4, 168, 87, 0.16);
+  --tm-glow-2: rgba(0, 185, 128, 0.12);
+  --tm-shadow: rgba(4, 36, 20, 0.14);
+  --tm-danger-bg: rgba(225, 29, 72, 0.09);
+  --tm-danger-text: #9f1239;
+}
+
+.trainer-math::before,
+.trainer-math::after {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
+}
+
+.trainer-math::before {
   background-image:
-    linear-gradient(rgba(24, 200, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(24, 200, 255, 0.06) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: radial-gradient(circle at 50% 15%, black 0%, transparent 72%);
+    linear-gradient(var(--tm-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--tm-grid) 1px, transparent 1px);
+  background-size: 38px 38px;
+  mask-image: radial-gradient(circle at 50% 16%, black 0%, transparent 74%);
+}
+
+.trainer-math::after {
+  opacity: 0.72;
+  background:
+    linear-gradient(90deg, transparent 0 9%, rgba(53, 255, 210, 0.06) 9.1% 9.3%, transparent 9.4% 100%),
+    repeating-linear-gradient(180deg, transparent 0 11px, rgba(255, 255, 255, 0.018) 12px);
+  mix-blend-mode: screen;
+}
+
+.trainer-theme-light::after {
+  opacity: 0.3;
+  mix-blend-mode: multiply;
 }
 
 .trainer-math > * {
   position: relative;
   z-index: 1;
+}
+
+.trainer-math nav {
+  background: var(--tm-nav) !important;
+  color: var(--tm-text) !important;
+  backdrop-filter: blur(22px);
+  box-shadow: 0 18px 60px var(--tm-shadow), inset 0 -1px 0 var(--tm-border);
 }
 
 .trainer-math .bg-white,
@@ -80,38 +167,84 @@ button:disabled {
   backdrop-filter: blur(18px);
 }
 
-.trainer-math .bg-\[\#040F20\] {
-  background: rgba(5, 7, 17, 0.92) !important;
-}
-
-.trainer-math .border-\[\#DCE5F2\],
-.trainer-math .border-\[\#0A244C\] {
-  border-color: var(--tm-border) !important;
-}
-
-.trainer-math .text-\[\#0A244C\],
-.trainer-math .text-\[\#2165FF\] {
+.trainer-math .bg-\[\#040F20\],
+.trainer-math .bg-\[\#050711\] {
+  background: var(--tm-card-strong) !important;
   color: var(--tm-text) !important;
 }
 
-.trainer-math .text-\[\#7A8AA0\] {
-  color: var(--tm-soft) !important;
+.trainer-math .border-\[\#DCE5F2\],
+.trainer-math .border-\[\#0A244C\],
+.trainer-math .border-white\/10,
+.trainer-math .border-white\/15 {
+  border-color: var(--tm-border) !important;
 }
 
-.trainer-math .text-\[\#8DB1FF\] {
+.trainer-math .border-\[\#2165FF\],
+.trainer-math .border-\[\#18C8FF\],
+.trainer-math .border-\[\#4D84FF\] {
+  border-color: var(--tm-cyan) !important;
+}
+
+.trainer-math .text-\[\#0A244C\],
+.trainer-math .text-white {
+  color: var(--tm-text) !important;
+}
+
+.trainer-math .text-\[\#2165FF\],
+.trainer-math .text-\[\#18C8FF\],
+.trainer-math .text-\[\#8DB1FF\],
+.trainer-math .text-\[\#4D84FF\] {
   color: var(--tm-cyan) !important;
 }
 
-.trainer-math .bg-\[\#2165FF\] {
-  background: linear-gradient(135deg, var(--tm-blue), var(--tm-violet)) !important;
+.trainer-math .text-\[\#7A8AA0\],
+.trainer-math .text-\[\#8E929E\],
+.trainer-math .text-\[\#C7D3E6\],
+.trainer-math .text-\[\#C5C8D6\] {
+  color: var(--tm-soft) !important;
+}
+
+.trainer-math .text-\[\#050711\] {
+  color: var(--tm-on-accent) !important;
+}
+
+.trainer-math .bg-\[\#2165FF\],
+.trainer-math .bg-\[\#0A74FF\],
+.trainer-math .bg-\[\#18C8FF\] {
+  background: linear-gradient(135deg, var(--tm-blue), var(--tm-cyan)) !important;
+  color: var(--tm-on-accent) !important;
+  box-shadow: 0 0 30px color-mix(in srgb, var(--tm-blue), transparent 70%) !important;
+}
+
+.trainer-math .from-\[\#0A74FF\] {
+  --tw-gradient-from: var(--tm-blue) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: color-mix(in srgb, var(--tm-blue), transparent 100%) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.trainer-math .to-\[\#18C8FF\] {
+  --tw-gradient-to: var(--tm-cyan) var(--tw-gradient-to-position) !important;
+}
+
+.trainer-math .hover\:border-\[\#4D84FF\]:hover,
+.trainer-math .hover\:border-\[\#18C8FF\]:hover,
+.trainer-math .hover\:border-\[\#2165FF\]:hover {
+  border-color: var(--tm-cyan) !important;
+}
+
+.trainer-math .focus\:border-\[\#4D84FF\]:focus,
+.trainer-math .focus\:border-\[\#18C8FF\]:focus,
+.trainer-math .focus\:border-\[\#2165FF\]:focus {
+  border-color: var(--tm-cyan) !important;
 }
 
 .trainer-math .shadow-soft {
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  box-shadow: 0 24px 80px var(--tm-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
 }
 
 .trainer-math input {
-  background: rgba(255, 255, 255, 0.07) !important;
+  background: var(--tm-card-soft) !important;
   border-color: var(--tm-border) !important;
   color: var(--tm-text) !important;
 }
@@ -120,21 +253,33 @@ button:disabled {
   color: var(--tm-soft);
 }
 
+.trainer-math button {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .trainer-math button:focus-visible,
 .trainer-math input:focus-visible {
-  outline: 3px solid rgba(24, 200, 255, 0.55);
+  outline: 3px solid color-mix(in srgb, var(--tm-cyan), transparent 50%);
   outline-offset: 3px;
 }
 
 .trainer-math .choice-card {
-  background: rgba(255, 255, 255, 0.07) !important;
+  background: var(--tm-card-soft) !important;
   border-color: var(--tm-border) !important;
   color: var(--tm-text) !important;
 }
 
 .trainer-math .choice-card:hover:not(:disabled) {
-  border-color: rgba(24, 200, 255, 0.75) !important;
-  box-shadow: 0 0 32px rgba(24, 200, 255, 0.16);
+  border-color: color-mix(in srgb, var(--tm-cyan), transparent 18%) !important;
+  box-shadow: 0 0 34px color-mix(in srgb, var(--tm-cyan), transparent 84%);
+}
+
+.trainer-math .bg-emerald-50 {
+  background: rgba(16, 185, 129, 0.14) !important;
+}
+
+.trainer-math .bg-rose-50 {
+  background: var(--tm-danger-bg) !important;
 }
 
 .font-display {
