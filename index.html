@@ -3,9 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Trainer Math 2.0</title>
-    <script type="module" crossorigin src="./assets/index-mathfocus-F5R6CK5H.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-mathfocus-7aW0q6p0.css">
+    <title>Trainer Math 3.0 — GEN+</title>
+    <script>
+      // Tema pre-paint: evita flash de fondo blanco antes de montar React.
+      try {
+        var tmTheme = localStorage.getItem('trainermath-v2:theme') === 'light' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = tmTheme;
+        document.documentElement.style.background = tmTheme === 'light' ? '#f3f5f9' : '#0b0e14';
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="./assets/index-mathfocus-BOhEbwWB.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-mathfocus-DhNUh7R4.css">
   </head>
   <body>
     <div id="root"></div>
