@@ -392,6 +392,106 @@ export const calculateCepreMetrics = (answers: UserAnswer[], totalTimeMs: number
   };
 };
 
+/** Métricas agregadas de una sesión Anzan multi-ronda (1 UserAnswer por ronda). */
+export const calculateAnzanSessionMetrics = (
+  answers: UserAnswer[],
+  totalTimeMs: number,
+  config: AnzanConfig,
+  roundSnapshots: Array<Pick<AnzanConfig, 'digits' | 'terms' | 'displayMs'>>,
+  sessions: TrainingSession[] = [],
+): SessionMetrics => {
+  const rounds = answers.length;
+  if (rounds <= 1 && answers[0]) return { ...calculateAnzanMetrics(answers[0], totalTimeMs, config, sessions), rounds: 1 };
+
+  const correct = answers.filter((answer) => answer.isCorrect).length;
+  const incorrect = rounds - correct;
+  const accuracy = rounds ? Math.round((correct / rounds) * 100) : 0;
+  const recallTimes = answers.map((answer) => answer.responseTimeMs).filter(Number.isFinite);
+  const averageTimeMs = average(recallTimes);
+  const minDisplayMs = roundSnapshots.length ? Math.min(...roundSnapshots.map((snapshot) => snapshot.displayMs)) : config.displayMs;
+  const difficulty = roundSnapshots.length
+    ? average(roundSnapshots.map((snapshot) => anzanDifficulty({ ...config, ...snapshot })))
+    : anzanDifficulty(config);
+  const paceFactor = Math.max(0, 1 - averageTimeMs / Math.max(1900, config.digits * config.terms * 390 * 1.75));
+  const speedScore = Math.round(accuracy * 0.66 + paceFactor * 100 * 0.34);
+  const capacity = eloCapacity(speedScore, accuracy, difficulty, 'flashAnzan', sessions);
+  const streak = bestRun(answers);
+  const operationLabel = config.operationMode === 'additionSubtraction' ? 'sumas y restas' : 'sumas';
+
+  const improvementFocus = accuracy >= 80
+    ? [
+        `Sostuviste ${correct}/${rounds} rondas. Sube a ${Math.min(config.digits + 1, 5)} dígitos o baja la aparición 100 ms.`,
+        'Agrupa en bloques de 10/50/100; no repitas la secuencia completa.',
+        'Mantén mirada central: el número llega a ti, no al revés.',
+      ]
+    : [
+        `Cerraste ${correct}/${rounds}. Repite esta configuración hasta sostener 80%.`,
+        'Visualiza acumulados parciales en lugar de repetir toda la secuencia.',
+        config.operationMode === 'additionSubtraction' ? 'Separa positivos y negativos antes del total.' : 'Agrupa por decenas para acelerar.',
+      ];
+
+  return {
+    totalTimeMs,
+    averageTimeMs,
+    fastestTimeMs: recallTimes.length ? Math.min(...recallTimes) : 0,
+    slowestTimeMs: recallTimes.length ? Math.max(...recallTimes) : 0,
+    correct,
+    incorrect,
+    accuracy,
+    speedScore,
+    recommendation: improvementFocus[0],
+    analysis: `Flash Anzan ${rounds} rondas de ${operationLabel}: ${correct} correctas, mejor racha ${streak}. Aparición mínima: ${minDisplayMs} ms.`,
+    weakestCategory: 'Flash Anzan',
+    bestCategory: accuracy >= 60 ? 'Memoria operativa' : 'Pendiente',
+    slowestPrompt: `${config.terms} términos · ${config.digits} dígito(s)`,
+    improvementFocus,
+    status: accuracy >= 80 ? 'Memoria activa sólida' : accuracy >= 50 ? 'Base en construcción' : 'Precisión en riesgo',
+    enduranceInsight: rounds >= 5 ? 'Buena resistencia de sesión: evalúa subir dígitos.' : 'Prueba 5+ rondas para medir estabilidad.',
+    currentStreak: streak,
+    bestStreak: streak,
+    rounds,
+    minDisplayMs,
+    ...capacity,
+  };
+};
+
+/** Métricas de una sesión de flash cards (autoevaluación Leitner). */
+export const calculateFlashCardsMetrics = (answers: UserAnswer[], totalTimeMs: number, sessions: TrainingSession[] = []): SessionMetrics => {
+  const correct = answers.filter((answer) => answer.isCorrect).length;
+  const incorrect = answers.length - correct;
+  const accuracy = answers.length ? Math.round((correct / answers.length) * 100) : 0;
+  const times = answers.map((answer) => answer.responseTimeMs).filter(Number.isFinite);
+  const averageTimeMs = average(times);
+  const paceFactor = Math.max(0, 1 - averageTimeMs / 9000);
+  const speedScore = Math.round(accuracy * 0.7 + paceFactor * 100 * 0.3);
+  const capacity = eloCapacity(speedScore, accuracy, 0.9, 'flashCards', sessions);
+
+  return {
+    totalTimeMs,
+    averageTimeMs,
+    fastestTimeMs: times.length ? Math.min(...times) : 0,
+    slowestTimeMs: times.length ? Math.max(...times) : 0,
+    correct,
+    incorrect,
+    accuracy,
+    speedScore,
+    recommendation: accuracy >= 85 ? 'Dominio alto: añade un mazo nuevo.' : 'Repite mañana: la caja 1 vuelve a aparecer.',
+    analysis: `${correct}/${answers.length} tarjetas sabidas. Las falladas vuelven a la caja 1 y reaparecen pronto.`,
+    weakestCategory: 'Memorización',
+    bestCategory: accuracy >= 70 ? 'Recuerdo automático' : 'En construcción',
+    slowestPrompt: '--',
+    improvementFocus: [
+      accuracy >= 85 ? 'Añade un mazo nuevo manteniendo el repaso diario.' : 'Prioriza los mazos con más cartas en caja 1.',
+      'Sesiones cortas diarias ganan a maratones: 15 tarjetas al día.',
+      'Di la respuesta en voz alta antes de voltear: fuerza el recuerdo.',
+    ],
+    status: accuracy >= 85 ? 'Memoria consolidada' : accuracy >= 60 ? 'Aprendizaje activo' : 'Repaso necesario',
+    enduranceInsight: 'La repetición espaciada hace el trabajo: vuelve mañana.',
+    bestStreak: bestRun(answers),
+    ...capacity,
+  };
+};
+
 export const calculateAnzanMetrics = (answer: UserAnswer, totalTimeMs: number, config: AnzanConfig, sessions: TrainingSession[] = []): SessionMetrics => {
   const correct = answer.isCorrect ? 1 : 0;
   const incorrect = answer.isCorrect ? 0 : 1;

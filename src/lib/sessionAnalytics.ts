@@ -316,7 +316,11 @@ export const displaySessionConfig = (session: TrainingSession) => {
     return `${session.config.amount} preguntas · ${cepreBlockLabels[session.config.block]}`;
   }
 
-  if ('amount' in session.config) {
+  if (session.kind === 'flashCards' && 'decks' in session.config) {
+    return `${session.answers.length} tarjetas · ${session.config.decks.length} mazo(s)`;
+  }
+
+  if ('amount' in session.config && 'level' in session.config) {
     return `${session.config.amount} preguntas · ${levelLabels[session.config.level]}`;
   }
 

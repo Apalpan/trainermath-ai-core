@@ -11,6 +11,7 @@ const hasAllowedConfig = (session: TrainingSession) => {
   if (session.kind === 'flashAnzan') return typeof config.terms === 'number' && typeof config.digits === 'number';
   if (session.kind === 'multiplicationSprint') return typeof config.multiplicationType === 'string' && config.multiplicationType in multiplicationTypeLabels;
   if (session.kind === 'doubleX2') return typeof config.start === 'number' && config.start > 0;
+  if (session.kind === 'flashCards') return Array.isArray(config.decks) && typeof config.amount === 'number';
   if ('category' in config) return typeof config.category === 'string' && config.category in categoryLabels;
   if ('block' in config) return typeof config.block === 'string' && config.block in cepreBlockLabels;
   return false;

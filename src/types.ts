@@ -20,13 +20,21 @@ export type Category =
 export type TrainingMode = 'accuracy' | 'speed' | 'mixed';
 export type ChoiceKey = 'A' | 'B' | 'C' | 'D';
 export type TrainerProduct = 'math' | 'cepre';
-export type DrillKind = 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'doubleX2' | 'cepreExam';
+export type DrillKind = 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'doubleX2' | 'cepreExam' | 'flashCards';
 export type AnzanOperationMode = 'addition' | 'additionSubtraction';
 export type AnzanAdvanceMode = 'timed' | 'manual';
 export type AnzanPreset = 'easy' | 'medium' | 'hard' | 'expert' | 'custom';
 export type MultiplicationType = 'oneByOne' | 'oneByTwo' | 'twoByTwo' | 'chain' | 'doubleInfinity' | 'mixed';
 export type ChainFactorCount = 2 | 3 | 4;
-export type PracticeTopic = Category | 'chainMultiplication' | 'doubleX2';
+export type PracticeTopic =
+  | Category
+  | 'chainMultiplication'
+  | 'doubleX2'
+  | 'complements'
+  | 'doubleHalf'
+  | 'estimation'
+  | 'squares'
+  | 'specialProducts';
 export type DoubleX2StepLimit = 10 | 20 | 30 | 'infinite';
 
 export type CepreBlock = 'numbers' | 'algebra' | 'mixed';
@@ -52,6 +60,10 @@ export interface AnzanConfig {
   advanceMode: AnzanAdvanceMode;
   instantFeedback: boolean;
   preset: AnzanPreset;
+  /** Rondas por sesión. Sesiones antiguas sin este campo equivalen a 1. */
+  rounds?: number;
+  /** 'speed': tras ronda correcta la aparición se acelera (×0.92). Default 'speed'. */
+  progression?: 'none' | 'speed';
 }
 
 export interface MultiplicationConfig {
@@ -74,6 +86,12 @@ export interface CepreConfig {
   amount: number;
   mode: CepreMode;
   instantFeedback: boolean;
+}
+
+export interface FlashCardsSessionConfig {
+  /** Ids de mazos de flashCards.ts seleccionados. */
+  decks: string[];
+  amount: number;
 }
 
 export interface AnswerChoice {
@@ -100,6 +118,8 @@ export interface Exercise {
   skill?: string;
   expectedError?: ErrorType;
   targetTimeSec?: number;
+  /** Peldaño de dificultad 1-10 (modo adaptativo). */
+  rung?: number;
 }
 
 export interface AnzanTerm {
@@ -168,13 +188,23 @@ export interface SessionMetrics {
   maxValue?: number;
   historyPreview?: string;
   chainFactorCount?: number;
+  // ladder adaptativo (solo sesiones adaptativas)
+  avgRung?: number;
+  peakRung?: number;
+  endRung?: number;
+  // anzan multi-ronda
+  rounds?: number;
+  minDisplayMs?: number;
+  // capa de juego
+  xpEarned?: number;
+  bestCombo?: number;
 }
 
 export interface TrainingSession {
   id: string;
   createdAt: string;
   kind: DrillKind;
-  config: TrainingConfig | AnzanConfig | MultiplicationConfig | DoubleX2Config | CepreConfig;
+  config: TrainingConfig | AnzanConfig | MultiplicationConfig | DoubleX2Config | CepreConfig | FlashCardsSessionConfig;
   metrics: SessionMetrics;
   answers: UserAnswer[];
   syncStatus?: SyncStatus;
@@ -213,11 +243,12 @@ export const modeLabels: Record<TrainingMode, string> = {
 };
 
 export const drillLabels: Record<DrillKind, string> = {
-  operations: 'Operaciones diversas',
+  operations: 'Operaciones',
   flashAnzan: 'Flash Anzan',
-  multiplicationSprint: 'Multiplicaciones rápidas',
+  multiplicationSprint: 'Multiplicación Sprint',
   doubleX2: 'Multiplicar x2',
-  cepreExam: 'Entrenador Examen CEPRE',
+  cepreExam: 'Examen CEPRE',
+  flashCards: 'Flash Cards',
 };
 
 export const multiplicationTypeLabels: Record<MultiplicationType, string> = {
@@ -247,6 +278,11 @@ export const practiceTopicLabels: Record<PracticeTopic, string> = {
   series: 'Series',
   chainMultiplication: 'Multiplicación encadenada',
   doubleX2: 'Multiplicar x2',
+  complements: 'Complementos',
+  doubleHalf: 'Doble y mitad',
+  estimation: 'Estimación',
+  squares: 'Cuadrados con truco',
+  specialProducts: 'Productos ×11/25/99',
 };
 
 export const anzanOperationLabels: Record<AnzanOperationMode, string> = {

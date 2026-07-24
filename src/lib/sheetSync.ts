@@ -172,7 +172,25 @@ export const queueSheetSync = (session: TrainingSession) => {
   return queue.length;
 };
 
-export const flushSheetSync = async () => {
+interface FlushResult {
+  sent: number;
+  pending: number;
+  configured: boolean;
+}
+
+// Guard de ejecución en vuelo: dos flushes concurrentes leerían la misma cola
+// y duplicarían filas en el Sheet; el segundo llamador comparte la promesa.
+let inflightFlush: Promise<FlushResult> | null = null;
+
+export const flushSheetSync = (): Promise<FlushResult> => {
+  if (inflightFlush) return inflightFlush;
+  inflightFlush = doFlush().finally(() => {
+    inflightFlush = null;
+  });
+  return inflightFlush;
+};
+
+const doFlush = async (): Promise<FlushResult> => {
   const endpoint = getSheetEndpoint();
   const queue = readQueue();
   if (!endpoint || queue.length === 0) {
