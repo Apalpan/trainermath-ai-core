@@ -12,7 +12,7 @@ import type {
   PracticeTopic,
   TrainingConfig,
 } from '../types';
-import { buildChoices, numericChoices, assignKeys } from './distractors';
+import { anzanChoices, buildChoices, numericChoices, assignKeys } from './distractors';
 import type { DistractorContext } from './distractors';
 import { commutativeSignature, hasCarry, percentDivisor, RecencyWindow } from './quality';
 import { pick, rand, shuffle } from './random';
@@ -606,11 +606,14 @@ export const generateFlashAnzanExercise = (config: AnzanConfig): AnzanExercise =
   let sameLastDigitRun = 0;
 
   const terms: AnzanTerm[] = Array.from({ length: config.terms }, (_, index) => {
+    // umbral anti-fusión: dos consecutivos casi idénticos (4823→4820) se leen como uno solo
+    const similarityGap = config.digits >= 2 ? Math.pow(10, config.digits - 1) / 2 : 0;
     let value = rand(min, max);
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const repeatsPrevious = value === previousValue;
+      const tooSimilar = index > 0 && similarityGap > 0 && Math.abs(value - previousValue) < similarityGap;
       const lastDigitRepeat = config.digits >= 2 && sameLastDigitRun >= 2 && value % 10 === previousValue % 10;
-      if (!repeatsPrevious && !lastDigitRepeat) break;
+      if (!repeatsPrevious && !tooSimilar && !lastDigitRepeat) break;
       value = rand(min, max);
     }
     const canSubtract = config.operationMode === 'additionSubtraction' && index > 0 && total - value >= 1 && value !== total;
@@ -627,7 +630,7 @@ export const generateFlashAnzanExercise = (config: AnzanConfig): AnzanExercise =
     terms,
     answer: total,
     answerLabel: String(total),
-    choices: numericChoices(total),
+    choices: anzanChoices(total, terms.map((term) => term.signedValue)),
     prompt,
     explanation: `Secuencia: ${prompt}. Resultado final: ${total}`,
   };

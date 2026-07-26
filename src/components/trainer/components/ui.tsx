@@ -182,6 +182,23 @@ export function Sparkline({ values }: { values: number[] }) {
   );
 }
 
+/** Cronómetro de sesión: mm:ss tabular, tick de 500ms, sin re-render del padre. */
+export function SessionClock({ startedAt, prefix }: { startedAt: number; prefix?: string }) {
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => forceTick((value) => value + 1), 500);
+    return () => window.clearInterval(timer);
+  }, []);
+  const totalSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return (
+    <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+      {prefix}{minutes}:{seconds}
+    </span>
+  );
+}
+
 /** Count-up animado con rAF; respeta reduced-motion. */
 export function useCountUp(target: number, durationMs = 900) {
   const [value, setValue] = useState(0);

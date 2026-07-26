@@ -67,7 +67,12 @@
     --tm-fg: oklch(0.96 0.006 var(--tm-hue));
     --tm-fg-mid: oklch(0.78 0.015 var(--tm-hue));
     --tm-fg-muted: oklch(0.60 0.02 var(--tm-hue));
+    /* escala de elevación: la luz superior de 1px separa "caja" de "objeto" */
+    --tm-hairline: inset 0 1px 0 oklch(1 0 0 / 0.055);
+    --tm-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.40), 0 4px 12px oklch(0 0 0 / 0.26);
+    --tm-shadow-md: 0 2px 4px oklch(0 0 0 / 0.42), 0 10px 28px oklch(0 0 0 / 0.34);
     --tm-shadow: 0 20px 50px oklch(0 0 0 / 0.42);
+    --tm-grain: 0.035;
   }
 
   .tm-app[data-theme='light'] {
@@ -91,7 +96,11 @@
     --tm-good-soft: oklch(0.55 0.15 155 / 0.11);
     --tm-bad: oklch(0.55 0.19 22);
     --tm-bad-soft: oklch(0.55 0.19 22 / 0.10);
+    --tm-hairline: inset 0 1px 0 oklch(1 0 0 / 0.9);
+    --tm-shadow-sm: 0 1px 2px oklch(0.45 0.05 var(--tm-hue) / 0.05), 0 2px 8px oklch(0.45 0.05 var(--tm-hue) / 0.06);
+    --tm-shadow-md: 0 2px 4px oklch(0.45 0.05 var(--tm-hue) / 0.06), 0 12px 28px oklch(0.45 0.05 var(--tm-hue) / 0.10);
     --tm-shadow: 0 16px 40px oklch(0.3 0.04 var(--tm-hue) / 0.10);
+    --tm-grain: 0.018;
   }
 }
 
@@ -121,16 +130,37 @@
   letter-spacing: -0.02em;
 }
 
-/* fondo: gradiente radial sutil, sin grids ruidosos */
+/* fondo en tres planos: spotlight superior, resplandor azul inferior y línea de horizonte.
+   Sin naranja: el único naranja de cada pantalla es el CTA. */
 .tm-app::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
+  z-index: 0;
   background:
-    radial-gradient(60% 45% at 50% -8%, var(--tm-blue-soft), transparent 70%),
-    radial-gradient(45% 35% at 88% 108%, var(--tm-accent-soft), transparent 72%);
-  opacity: 0.75;
+    radial-gradient(70% 50% at 50% -12%, var(--tm-blue-soft), transparent 68%),
+    radial-gradient(90% 60% at 50% 118%, oklch(0.62 0.16 var(--tm-hue) / 0.055), transparent 70%),
+    linear-gradient(to bottom, oklch(1 0 0 / 0.02), transparent 22%);
+  transition: opacity 400ms var(--ease-out);
+}
+
+/* durante el entrenamiento el campo se retira: el fondo nunca compite con la pregunta */
+.tm-app[data-surface='focus']::before { opacity: 0.5; }
+
+/* grain anti-banding: estático, debajo del contenido */
+@supports (mix-blend-mode: overlay) {
+  .tm-app::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+    opacity: var(--tm-grain, 0.03);
+    mix-blend-mode: overlay;
+  }
 }
 
 .tm-app > * { position: relative; z-index: 1; }
@@ -143,12 +173,14 @@
   border-radius: 16px;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--tm-shadow-sm), var(--tm-hairline);
 }
 
 .tm-card-solid {
   background: var(--tm-surface-solid);
   border: 1px solid var(--tm-border);
   border-radius: 16px;
+  box-shadow: var(--tm-shadow-sm), var(--tm-hairline);
 }
 
 /* ---------- botones ---------- */
@@ -201,7 +233,6 @@
 .tm-app :focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--tm-bg), 0 0 0 4px var(--tm-blue);
-  border-radius: 10px;
 }
 
 /* ---------- keycaps ---------- */
@@ -385,6 +416,63 @@
 @keyframes tm-glow-ring {
   0% { opacity: 0.9; transform: scale(0.98); }
   100% { opacity: 0; transform: scale(1.12); }
+}
+
+/* ---------- drill cards: familia cromática 195-285 + hover premium ---------- */
+
+.tm-drill {
+  position: relative;
+  --tm-drill-hue: var(--tm-hue);
+  transition: transform var(--dur-press) var(--ease-out), box-shadow 240ms var(--ease-out), border-color 240ms var(--ease-out);
+}
+.tm-drill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(115% 90% at 0% 0%, oklch(0.62 0.12 var(--tm-drill-hue) / 0.15), transparent 58%);
+  transition: opacity 240ms var(--ease-out);
+}
+.tm-drill > * { position: relative; z-index: 1; }
+@media (hover: hover) {
+  .tm-drill:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--tm-shadow-md), var(--tm-hairline);
+    border-color: var(--tm-border-strong);
+  }
+  .tm-drill:hover::before { opacity: 1; }
+}
+.tm-drill:focus-visible::before { opacity: 1; }
+.tm-drill:active { transform: translateY(0) scale(0.99); }
+
+.tm-drill[data-drill='flashAnzan'] { --tm-drill-hue: 265; }
+.tm-drill[data-drill='blitz'] { --tm-drill-hue: 225; }
+.tm-drill[data-drill='operations'] { --tm-drill-hue: 235; }
+.tm-drill[data-drill='digitSpan'] { --tm-drill-hue: 275; }
+.tm-drill[data-drill='multiplicationSprint'] { --tm-drill-hue: 210; }
+.tm-drill[data-drill='flashCards'] { --tm-drill-hue: 285; }
+.tm-drill[data-drill='doubleX2'] { --tm-drill-hue: 195; }
+.tm-drill[data-drill='cepreExam'] { --tm-drill-hue: 250; }
+
+.tm-drill-icon {
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: oklch(0.62 0.12 var(--tm-drill-hue) / 0.13);
+  color: oklch(0.74 0.13 var(--tm-drill-hue));
+  box-shadow: inset 0 0 0 1px oklch(0.62 0.12 var(--tm-drill-hue) / 0.18);
+}
+.tm-app[data-theme='light'] .tm-drill-icon { color: oklch(0.48 0.15 var(--tm-drill-hue)); }
+
+/* ---------- héroe de resultados: número monumento ---------- */
+
+.tm-hero-glow {
+  text-shadow: 0 0 40px oklch(0.70 0.14 220 / 0.35), 0 0 80px oklch(0.55 0.12 250 / 0.20);
+}
+.tm-app[data-theme='light'] .tm-hero-glow {
+  text-shadow: 0 0 32px oklch(0.55 0.14 235 / 0.22);
 }
 
 /* ---------- rampa de combo: azul → cyan (nunca naranja) ---------- */

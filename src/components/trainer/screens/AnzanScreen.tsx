@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { generateFlashAnzanExercise } from '../../../lib/exerciseGenerator';
 import { computeXp, isComboMilestone, registerOperation } from '../../../lib/gameSystem';
-import { playCorrect, playCountdownTick, playFlashTick, playIncorrect } from '../../../lib/soundEngine';
+import { playComboMilestone, playCorrect, playCountdownTick, playFlashTick, playIncorrect } from '../../../lib/soundEngine';
 import type { AnswerChoice, AnzanConfig, AnzanExercise, ChoiceKey, UserAnswer } from '../../../types';
-import { ChoiceGrid, ComboPill, ExitConfirm, ProgressTopBar } from '../components/ui';
+import { ChoiceGrid, ComboPill, ExitConfirm, ProgressTopBar, SessionClock } from '../components/ui';
 
 export interface AnzanResult {
   answers: UserAnswer[];
@@ -31,7 +31,13 @@ export default function AnzanScreen({
 }) {
   const rounds = Math.max(1, config.rounds ?? 1);
   const progression = config.progression ?? 'speed';
-  const floorMs = Math.max(300, config.digits * 180);
+  // Límite de legibilidad humana por cantidad de dígitos.
+  // floor = hasta dónde ACELERA al acertar (nunca por encima de la base que eligió el usuario).
+  // ceil  = hasta dónde ALIVIA al fallar (puede subir por encima de la base hasta lo legible).
+  // Esto corrige la inversión: antes, con base < legible, acertar ralentizaba y fallar aceleraba.
+  const legibleMs = Math.max(400, config.digits * 150);
+  const floorMs = Math.min(config.displayMs, legibleMs);
+  const ceilMs = Math.max(config.displayMs, legibleMs);
 
   const [round, setRound] = useState(0);
   const [displayMs, setDisplayMs] = useState(config.displayMs);
@@ -92,6 +98,8 @@ export default function AnzanScreen({
 
   useEffect(() => {
     if (phase !== 'gap' || showExit) return;
+    // gap proporcional a la exposición (~22%): a alta velocidad separa mejor los términos
+    const gapMs = Math.max(GAP_MS, Math.round(displayMs * 0.22));
     const timeout = window.setTimeout(() => {
       if (termIndex + 1 >= exercise.terms.length) {
         setPhase('hold');
@@ -99,9 +107,9 @@ export default function AnzanScreen({
         setTermIndex((value) => value + 1);
         setPhase('sequence');
       }
-    }, GAP_MS);
+    }, gapMs);
     return () => window.clearTimeout(timeout);
-  }, [exercise.terms.length, phase, showExit, termIndex]);
+  }, [displayMs, exercise.terms.length, phase, showExit, termIndex]);
 
   useEffect(() => {
     if (phase !== 'hold' || showExit) return;
@@ -111,6 +119,39 @@ export default function AnzanScreen({
     }, HOLD_MS);
     return () => window.clearTimeout(timeout);
   }, [phase, showExit]);
+
+  /* ---------- reinicio limpio de la ronda en curso ----------
+     Si la secuencia se interrumpe (diálogo de salida o pestaña oculta), la memoria
+     del usuario ya está contaminada: se regenera el ejercicio y se relanza el
+     countdown — nunca se re-flashea un término ya visto (doble conteo). */
+  const restartRound = useCallback(() => {
+    setExercise(generateFlashAnzanExercise({ ...config, displayMs: displayMsRef.current }));
+    setTermIndex(0);
+    setSelectedKey(null);
+    setCountdown(3);
+    setPhase('countdown');
+  }, [config]);
+
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+
+  const resumeFromPause = useCallback(() => {
+    setShowExit(false);
+    if (phaseRef.current === 'sequence' || phaseRef.current === 'gap' || phaseRef.current === 'hold') {
+      restartRound();
+    }
+  }, [restartRound]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) return;
+      if (phaseRef.current === 'sequence' || phaseRef.current === 'gap' || phaseRef.current === 'hold') {
+        restartRound();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [restartRound]);
 
   /* ---------- avance manual ---------- */
   const moveManual = useCallback((direction: 1 | -1) => {
@@ -165,7 +206,7 @@ export default function AnzanScreen({
         targetTimeMs: Math.max(2200, config.digits * config.terms * 390),
         comboAfterAnswer: nextCombo,
       });
-      if (isComboMilestone(nextCombo)) playCorrect(nextCombo);
+      if (isComboMilestone(nextCombo)) playComboMilestone();
       else playCorrect(nextCombo);
       if (progression === 'speed' && config.advanceMode === 'timed') {
         displayMsRef.current = Math.max(floorMs, Math.round(displayMsRef.current * 0.92));
@@ -174,7 +215,8 @@ export default function AnzanScreen({
       setCombo(0);
       playIncorrect();
       if (progression === 'speed' && config.advanceMode === 'timed') {
-        displayMsRef.current = Math.min(config.displayMs, Math.round(displayMsRef.current / 0.92));
+        // al fallar se alivia el ritmo dos pasos, hasta el techo legible (nunca de vuelta a una base ilegible)
+        displayMsRef.current = Math.min(ceilMs, Math.round(displayMsRef.current / (0.92 * 0.92)));
       }
     }
 
@@ -242,10 +284,14 @@ export default function AnzanScreen({
     : ((termIndex + 1) / exercise.terms.length) * 100;
   const roundProgress = ((round + (phase === 'feedback' || phase === 'interround' ? 1 : 0)) / rounds) * 100;
   const lastAnswer = answersRef.current[answersRef.current.length - 1];
+  // durante la secuencia el rail marca el ritmo término a término (ancla visual);
+  // fuera de ella, el avance de rondas
+  const inSequence = phase === 'sequence' || phase === 'gap' || phase === 'hold';
+  const barProgress = inSequence || rounds <= 1 ? sequenceProgress : roundProgress;
 
   return (
     <div className="tm-screen relative flex min-h-screen flex-col px-5 pb-8 pt-14">
-      <ProgressTopBar progress={rounds > 1 ? roundProgress : sequenceProgress} />
+      <ProgressTopBar progress={barProgress} />
 
       <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex items-center justify-center">
         <ComboPill combo={combo} flare={comboFlare} />
@@ -261,11 +307,10 @@ export default function AnzanScreen({
         <X size={17} />
       </button>
 
-      {rounds > 1 && (
-        <p className="fixed right-5 top-4 z-40 text-sm font-bold" style={{ color: 'var(--tm-fg-muted)' }}>
-          Ronda {Math.min(round + 1, rounds)} / {rounds}
-        </p>
-      )}
+      <p className="fixed right-5 top-4 z-40 text-sm font-bold" style={{ color: 'var(--tm-fg-muted)' }}>
+        {rounds > 1 ? `Ronda ${Math.min(round + 1, rounds)} / ${rounds}` : 'Flash Anzan'}
+        <span className="ml-2 opacity-80"><SessionClock startedAt={startedAtRef.current} /></span>
+      </p>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8">
         {phase === 'countdown' && (
@@ -276,13 +321,17 @@ export default function AnzanScreen({
 
         {(phase === 'sequence' || phase === 'gap') && (
           <>
-            {phase === 'sequence' && term ? (
+            {phase === 'sequence' && term && !showExit ? (
               <div
                 key={term.id}
                 className="tm-anzan-term tm-display tm-anzan-size text-center font-bold"
-                style={{ color: term.signedValue < 0 ? 'var(--tm-bad)' : 'var(--tm-fg)' }}
+                style={{
+                  color: term.signedValue < 0 ? 'var(--tm-bad)' : 'var(--tm-fg)',
+                  // la animación de entrada nunca consume más del 25% del tiempo visible
+                  animationDuration: `${Math.min(120, Math.round(displayMs * 0.25))}ms`,
+                }}
               >
-                {term.signedValue < 0 ? `−${term.value}` : term.value}
+                {term.signedValue < 0 ? `−${term.value}` : config.operationMode === 'additionSubtraction' ? `+${term.value}` : term.value}
               </div>
             ) : (
               <div className="tm-anzan-size" aria-hidden="true">&nbsp;</div>
@@ -308,9 +357,15 @@ export default function AnzanScreen({
           <>
             <p className="tm-display text-2xl font-bold sm:text-3xl" style={{ color: 'var(--tm-fg)' }}>¿Cuál fue el total?</p>
             {phase === 'feedback' && lastAnswer && !lastAnswer.isCorrect && (
-              <p className="text-base font-bold" style={{ color: 'var(--tm-good)' }} aria-live="polite">
-                Correcta: {exercise.answerLabel}
-              </p>
+              <div aria-live="polite" className="text-center">
+                <p className="text-base font-bold" style={{ color: 'var(--tm-good)' }}>
+                  Correcta: {exercise.answerLabel}
+                </p>
+                {/* el rastro completo hace verificable la ronda: convierte la duda en dato */}
+                <p className="tm-display mt-1 text-sm font-semibold" style={{ color: 'var(--tm-fg-muted)' }}>
+                  {exercise.prompt} = {exercise.answerLabel}
+                </p>
+              </div>
             )}
             <ChoiceGrid
               choices={exercise.choices}
@@ -328,13 +383,18 @@ export default function AnzanScreen({
               {lastAnswer.isCorrect ? 'Correcto' : 'Fallada'}
             </p>
             <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--tm-fg-muted)' }}>
-              Ronda {round + 2} / {rounds}{progression === 'speed' && config.advanceMode === 'timed' ? ` · aparición ${displayMsRef.current} ms` : ''}
+              Ronda {round + 2} / {rounds}
             </p>
+            {progression === 'speed' && config.advanceMode === 'timed' && (
+              <p className="mt-1 text-sm font-bold" style={{ color: displayMsRef.current < config.displayMs ? 'var(--tm-blue)' : 'var(--tm-fg-muted)' }}>
+                {displayMsRef.current < config.displayMs ? 'Velocidad ↑ · ' : ''}aparición {displayMsRef.current} ms
+              </p>
+            )}
           </div>
         )}
       </div>
 
-      {showExit && <ExitConfirm onConfirm={onExit} onCancel={() => setShowExit(false)} />}
+      {showExit && <ExitConfirm onConfirm={onExit} onCancel={resumeFromPause} />}
     </div>
   );
 }

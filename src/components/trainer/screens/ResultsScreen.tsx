@@ -41,8 +41,15 @@ export default function ResultsScreen({
     if (session.kind === 'doubleX2') {
       return { value: metrics.completed ?? metrics.correct, suffix: '', label: 'Pasos de duplicación' };
     }
+    if (session.kind === 'blitz') {
+      const durationSec = 'durationSec' in session.config ? session.config.durationSec : 60;
+      return { value: metrics.correct, suffix: '', label: `Aciertos en ${durationSec} s` };
+    }
+    if (session.kind === 'digitSpan') {
+      return { value: metrics.peakRung ?? 0, suffix: ' díg', label: 'Span máximo' };
+    }
     return { value: metrics.accuracy, suffix: '%', label: 'Precisión' };
-  }, [metrics, session.kind]);
+  }, [metrics, session.config, session.kind]);
 
   const heroValue = useCountUp(hero.value, 900);
   const xpValue = useCountUp(outcome.xpEarned, 1100);
@@ -82,7 +89,7 @@ export default function ResultsScreen({
 
       <div className="mt-4">
         <SectionLabel>{hero.label}</SectionLabel>
-        <p className="tm-display tm-hero-size mt-1 font-bold" style={{ color: 'var(--tm-fg)' }}>
+        <p className="tm-display tm-hero-size tm-hero-glow mt-1 font-bold" style={{ color: 'var(--tm-fg)' }}>
           {heroValue}
           <span style={{ color: 'var(--tm-fg-muted)', fontSize: '0.45em' }}>{hero.suffix}</span>
         </p>
@@ -91,7 +98,11 @@ export default function ResultsScreen({
             ? `Mejor racha ${metrics.bestStreak ?? 0} · recall prom. ${formatDuration(metrics.averageTimeMs)}`
             : session.kind === 'doubleX2'
               ? `Máximo ${metrics.maxValue ? formatCompactNumber(metrics.maxValue) : '--'}`
-              : `${metrics.correct}/${metrics.correct + metrics.incorrect} correctas`}
+              : session.kind === 'blitz'
+                ? `${metrics.accuracy}% de precisión · ${metrics.correct + metrics.incorrect} respondidas`
+                : session.kind === 'digitSpan'
+                  ? `Cerraste en ${metrics.endRung ?? 0} dígitos · ${metrics.correct}/${metrics.correct + metrics.incorrect} rondas`
+                  : `${metrics.correct}/${metrics.correct + metrics.incorrect} correctas`}
         </p>
       </div>
 
@@ -116,7 +127,8 @@ export default function ResultsScreen({
         </div>
       </div>
 
-      <div className="mx-auto mt-4 grid max-w-md grid-cols-3 gap-3">
+      <div className="mx-auto mt-4 grid max-w-md grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatChip label="Tiempo total" value={formatDuration(metrics.totalTimeMs)} />
         <StatChip label="Tiempo prom." value={formatDuration(metrics.averageTimeMs)} />
         <StatChip label="Mejor combo" value={outcome.bestCombo ? `×${outcome.bestCombo}` : '—'} tone={outcome.records.newBestCombo ? 'accent' : undefined} />
         <StatChip label="XP ganado" value={`+${xpValue}`} tone="good" />

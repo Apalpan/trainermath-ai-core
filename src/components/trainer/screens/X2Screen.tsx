@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, RotateCcw, X } from 'lucide-react';
 import { formatCompactNumber, formatDuration } from '../../../lib/scoring';
 import { playCorrect } from '../../../lib/soundEngine';
 import type { DoubleX2Config } from '../../../types';
-import { ExitConfirm, Keycap, ProgressTopBar, StatChip } from '../components/ui';
+import { ExitConfirm, Keycap, ProgressTopBar, SessionClock, StatChip } from '../components/ui';
 
 export interface X2Result {
   history: number[];
@@ -97,6 +97,7 @@ export default function X2Screen({
 
       <p className="fixed right-5 top-4 z-40 text-sm font-bold" style={{ color: 'var(--tm-fg-muted)' }}>
         Paso {stepCount}{config.stepLimit !== 'infinite' ? ` / ${config.stepLimit}` : ''}
+        <span className="ml-2 opacity-80"><SessionClock startedAt={startedAtRef.current} /></span>
       </p>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8">

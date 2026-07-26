@@ -64,6 +64,8 @@ const drillTargetFactor: Partial<Record<DrillKind, number>> = {
   flashAnzan: 0.45,
   doubleX2: 0.6,
   flashCards: 0.8,
+  blitz: 0.75,
+  digitSpan: 0.7,
 };
 
 export const getTargetTimeMs = (level: Level, drill: DrillKind, targetTimeSec?: number) => {

@@ -6,7 +6,10 @@ import { flashDeckMetas, getDeckStats } from '../../../lib/flashCards';
 import type {
   AnzanConfig,
   AnzanPreset,
+  BlitzConfig,
+  BlitzDurationSec,
   CepreConfig,
+  DigitSpanConfig,
   DoubleX2Config,
   DoubleX2StepLimit,
   DrillKind,
@@ -42,12 +45,16 @@ interface SetupProps {
   x2: DoubleX2Config;
   cepre: CepreConfig;
   flashCards: FlashCardsSetup;
+  blitz: BlitzConfig;
+  digitSpan: DigitSpanConfig;
   onChangeOperations: (config: TrainingConfig) => void;
   onChangeMultiplication: (config: MultiplicationConfig) => void;
   onChangeAnzan: (config: AnzanConfig) => void;
   onChangeX2: (config: DoubleX2Config) => void;
   onChangeCepre: (config: CepreConfig) => void;
   onChangeFlashCards: (config: FlashCardsSetup) => void;
+  onChangeBlitz: (config: BlitzConfig) => void;
+  onChangeDigitSpan: (config: DigitSpanConfig) => void;
   onStart: () => void;
   onBack: () => void;
 }
@@ -59,6 +66,8 @@ const drillTaglines: Record<DrillKind, string> = {
   doubleX2: 'Duplica sin parar. ¿Hasta dónde llegas sin romper el ritmo?',
   cepreExam: 'Números y álgebra con formato de examen por microtema.',
   flashCards: 'Memoriza los datos que hacen rápido al cálculo: tablas, cuadrados, equivalencias.',
+  blitz: 'Un cronómetro fijo, un score que batir mañana. La dificultad se adapta sola.',
+  digitSpan: 'Un número aparece 1.2 segundos y desaparece. Retenlo. El span crece contigo.',
 };
 
 interface Preset<T> {
@@ -84,8 +93,8 @@ const multiplicationPresets: Preset<Partial<MultiplicationConfig>>[] = [
 const anzanPresets: Record<Exclude<AnzanPreset, 'custom'>, Pick<AnzanConfig, 'digits' | 'terms' | 'displayMs' | 'operationMode' | 'advanceMode'>> = {
   easy: { digits: 1, terms: 5, displayMs: 1000, operationMode: 'addition', advanceMode: 'timed' },
   medium: { digits: 2, terms: 8, displayMs: 750, operationMode: 'addition', advanceMode: 'timed' },
-  hard: { digits: 3, terms: 10, displayMs: 500, operationMode: 'additionSubtraction', advanceMode: 'timed' },
-  expert: { digits: 4, terms: 15, displayMs: 350, operationMode: 'additionSubtraction', advanceMode: 'timed' },
+  hard: { digits: 3, terms: 10, displayMs: 550, operationMode: 'additionSubtraction', advanceMode: 'timed' },
+  expert: { digits: 4, terms: 15, displayMs: 700, operationMode: 'additionSubtraction', advanceMode: 'timed' },
 };
 
 const ceprePresets: Preset<Partial<CepreConfig>>[] = [
@@ -108,7 +117,9 @@ export default function SetupScreen(props: SetupProps) {
   const { drill, onStart, onBack } = props;
   const [customOpen, setCustomOpen] = useState(false);
 
-  const presetCount = drill === 'operations' ? 4 : drill === 'multiplicationSprint' ? 4 : drill === 'flashAnzan' ? 4 : drill === 'cepreExam' ? 3 : 0;
+  const presetCount = drill === 'operations' || drill === 'multiplicationSprint' || drill === 'flashAnzan'
+    ? 4
+    : drill === 'cepreExam' || drill === 'blitz' || drill === 'digitSpan' ? 3 : 0;
 
   // el preset activo se DERIVA de la config real: si el usuario personaliza,
   // ningún preset queda resaltado (el highlight nunca miente)
@@ -117,8 +128,10 @@ export default function SetupScreen(props: SetupProps) {
     if (drill === 'multiplicationSprint') return multiplicationPresets.findIndex((preset) => configMatchesPreset(props.multiplication as unknown as Record<string, unknown>, preset.apply as Record<string, unknown>));
     if (drill === 'flashAnzan') return (['easy', 'medium', 'hard', 'expert'] as const).indexOf(props.anzan.preset as 'easy');
     if (drill === 'cepreExam') return ceprePresets.findIndex((preset) => configMatchesPreset(props.cepre as unknown as Record<string, unknown>, preset.apply as Record<string, unknown>));
+    if (drill === 'blitz') return ([60, 120, 180] as const).indexOf(props.blitz.durationSec);
+    if (drill === 'digitSpan') return props.digitSpan.startDigits === undefined ? 0 : props.digitSpan.startDigits === 4 ? 1 : props.digitSpan.startDigits === 6 ? 2 : -1;
     return -1;
-  }, [drill, props.anzan.preset, props.cepre, props.multiplication, props.operations]);
+  }, [drill, props.anzan.preset, props.blitz.durationSec, props.cepre, props.digitSpan.startDigits, props.multiplication, props.operations]);
 
   const applyPreset = (index: number) => {
     if (drill === 'operations') props.onChangeOperations({ ...props.operations, ...operationPresets[index].apply });
@@ -128,6 +141,8 @@ export default function SetupScreen(props: SetupProps) {
       props.onChangeAnzan({ ...props.anzan, ...anzanPresets[key], preset: key });
     }
     if (drill === 'cepreExam') props.onChangeCepre({ ...props.cepre, ...ceprePresets[index].apply });
+    if (drill === 'blitz') props.onChangeBlitz({ ...props.blitz, durationSec: ([60, 120, 180] as const)[index] as BlitzDurationSec });
+    if (drill === 'digitSpan') props.onChangeDigitSpan({ ...props.digitSpan, startDigits: [undefined, 4, 6][index] });
   };
 
   useEffect(() => {
@@ -167,7 +182,19 @@ export default function SetupScreen(props: SetupProps) {
           }))
         : drill === 'cepreExam'
           ? ceprePresets
-          : [];
+          : drill === 'blitz'
+            ? [
+                { name: 'Sprint 60', detail: '60 segundos', apply: {} },
+                { name: 'Ronda 120', detail: '2 minutos', apply: {} },
+                { name: 'Resistencia 180', detail: '3 minutos', apply: {} },
+              ]
+            : drill === 'digitSpan'
+              ? [
+                  { name: 'Continuar', detail: 'Desde donde quedaste', apply: {} },
+                  { name: 'Desde 4', detail: '4 dígitos', apply: {} },
+                  { name: 'Desde 6', detail: '6 dígitos', apply: {} },
+                ]
+              : [];
 
   return (
     <div className="tm-screen mx-auto w-full max-w-2xl px-5 pb-32 pt-8 sm:pt-12">
@@ -223,7 +250,7 @@ export default function SetupScreen(props: SetupProps) {
       {drill === 'doubleX2' && <X2Setup config={props.x2} onChange={props.onChangeX2} />}
       {drill === 'flashCards' && <FlashCardsSetupPanel config={props.flashCards} onChange={props.onChangeFlashCards} />}
 
-      {drill !== 'doubleX2' && drill !== 'flashCards' && (
+      {drill !== 'doubleX2' && drill !== 'flashCards' && drill !== 'digitSpan' && (
         <div className="mt-8">
           <button
             type="button"
@@ -241,6 +268,7 @@ export default function SetupScreen(props: SetupProps) {
               {drill === 'multiplicationSprint' && <MultiplicationCustom config={props.multiplication} onChange={props.onChangeMultiplication} />}
               {drill === 'flashAnzan' && <AnzanCustom config={props.anzan} onChange={props.onChangeAnzan} />}
               {drill === 'cepreExam' && <CepreCustom config={props.cepre} onChange={props.onChangeCepre} />}
+              {drill === 'blitz' && <BlitzCustom config={props.blitz} onChange={props.onChangeBlitz} />}
             </div>
           )}
         </div>
@@ -464,6 +492,54 @@ function CepreCustom({ config, onChange }: { config: CepreConfig; onChange: (con
       <Seg title="Nivel" items={levelOptions} labels={levelLabels} selected={config.level} onSelect={(level) => onChange({ ...config, level })} columns={5} />
       <Seg title="Modo" items={cepreModes} labels={cepreModeLabels} selected={config.mode} onSelect={(mode) => onChange({ ...config, mode })} columns={2} />
       <AmountSeg value={config.amount} onChange={(amount) => onChange({ ...config, amount })} />
+    </>
+  );
+}
+
+function BlitzCustom({ config, onChange }: { config: BlitzConfig; onChange: (config: BlitzConfig) => void }) {
+  const selected = config.topics ?? ['mixed'];
+  const isAll = selected.includes('mixed');
+  const toggleTopic = (topic: PracticeTopic) => {
+    if (topic === 'mixed') {
+      onChange({ ...config, topics: ['mixed'], category: 'mixed' });
+      return;
+    }
+    const base = selected.filter((item) => item !== 'mixed');
+    const next = base.includes(topic) ? base.filter((item) => item !== topic) : [...base, topic];
+    const category: BlitzConfig['category'] = next.find(
+      (item): item is Exclude<BlitzConfig['category'], 'mixed'> => item in categoryLabels,
+    ) ?? 'mixed';
+    onChange({ ...config, topics: next.length ? next : ['mixed'], category: next.length ? category : 'mixed' });
+  };
+  return (
+    <>
+      <Seg title="Nivel" items={levelOptions} labels={levelLabels} selected={config.level} onSelect={(level) => onChange({ ...config, level })} columns={5} />
+      <div>
+        <SectionLabel>Temas</SectionLabel>
+        <button type="button" className="tm-seg tm-press mt-3 w-full px-4 py-3 text-sm" data-active={isAll ? 'true' : 'false'} onClick={() => toggleTopic('mixed')}>
+          Todo (mixto)
+        </button>
+        <div className="mt-3 grid gap-4">
+          {topicGroups.map((group) => (
+            <div key={group.title}>
+              <p className="text-xs font-bold" style={{ color: 'var(--tm-fg-muted)' }}>{group.title}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {group.topics.map((topic) => (
+                  <button
+                    key={topic}
+                    type="button"
+                    className="tm-seg tm-press px-3.5 py-2 text-sm"
+                    data-active={!isAll && selected.includes(topic) ? 'true' : 'false'}
+                    onClick={() => toggleTopic(topic)}
+                  >
+                    {practiceTopicLabels[topic]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </>
   );
 }

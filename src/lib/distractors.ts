@@ -311,6 +311,98 @@ const registry: Partial<Record<string, DistractorGen>> = {
   specialProduct: specialProductErrors,
 };
 
+/* ---------- Flash Anzan: errores reales de anzan como distractores ----------
+   Cuando el usuario comete el error típico (signo perdido, término perdido,
+   término doblado, acarreo), SU suma aparece entre las opciones: el fallo se
+   vuelve diagnosticable en vez de sentirse arbitrario. */
+export const anzanChoices = (total: number, signedTerms: number[]): AnswerChoice[] => {
+  const lastTerm = signedTerms[signedTerms.length - 1];
+  const firstNegative = signedTerms.find((value) => value < 0);
+  const middle = signedTerms[Math.floor(signedTerms.length / 2)];
+  const candidates: number[] = [];
+  if (firstNegative !== undefined) candidates.push(total + 2 * Math.abs(firstNegative)); // sumó en vez de restar
+  if (lastTerm !== undefined) candidates.push(total - lastTerm);                          // perdió el último término
+  if (middle !== undefined && middle !== lastTerm) candidates.push(total - middle, total + middle); // término perdido/doblado
+  candidates.push(total + 10, total - 10);                                                // acarreo
+  if (Math.abs(total) >= 200) candidates.push(total + 100, total - 100);
+  const transposed = transposeDigits(total);
+  if (transposed !== null) candidates.push(transposed);
+
+  const seen = new Set([Number(total.toFixed(6))]);
+  const survivors: number[] = [];
+  for (const candidate of candidates) {
+    if (survivors.length === 3) break;
+    if (!Number.isInteger(candidate) || candidate < 0) continue;
+    const key = Number(candidate.toFixed(6));
+    if (seen.has(key)) continue;
+    seen.add(key);
+    survivors.push(candidate);
+  }
+  let fillStep = 1;
+  while (survivors.length < 3) {
+    const candidate = total + fillStep * (survivors.length % 2 === 0 ? 1 : -1);
+    fillStep += 1;
+    const key = Number(candidate.toFixed(6));
+    if (seen.has(key) || candidate < 0) continue;
+    seen.add(key);
+    survivors.push(candidate);
+  }
+  return assignKeys([
+    { label: String(total), value: total, isCorrect: true },
+    ...survivors.map((value) => ({ label: String(value), value, isCorrect: false })),
+  ]);
+};
+
+/* ---------- Memoria de Dígitos: distractores por transposición y vecino ---------- */
+
+const swapDigits = (digits: string, a: number, b: number) => {
+  const chars = digits.split('');
+  [chars[a], chars[b]] = [chars[b], chars[a]];
+  return chars.join('');
+};
+
+/** Distractores del mismo largo que el número: transposiciones y dígito vecino ±1. */
+export const digitSpanChoices = (value: number): AnswerChoice[] => {
+  const digits = String(value);
+  const length = digits.length;
+  const candidates = new Set<string>();
+
+  // transposición de pares adyacentes (el error de memoria más común)
+  for (let index = 0; index < length - 1 && candidates.size < 6; index += 1) {
+    const swapped = swapDigits(digits, index, index + 1);
+    if (swapped !== digits && swapped[0] !== '0') candidates.add(swapped);
+  }
+  // primer↔último
+  if (length >= 3) {
+    const swapped = swapDigits(digits, 0, length - 1);
+    if (swapped !== digits && swapped[0] !== '0') candidates.add(swapped);
+  }
+  // dígito vecino ±1 en posición aleatoria
+  for (let attempt = 0; attempt < 8 && candidates.size < 8; attempt += 1) {
+    const position = rand(0, length - 1);
+    const digit = Number(digits[position]);
+    const delta = pick([1, -1]);
+    const nextDigit = digit + delta;
+    if (nextDigit < 0 || nextDigit > 9) continue;
+    if (position === 0 && nextDigit === 0) continue;
+    const mutated = digits.slice(0, position) + String(nextDigit) + digits.slice(position + 1);
+    if (mutated !== digits) candidates.add(mutated);
+  }
+
+  const survivors = shuffle([...candidates]).slice(0, 3);
+  let fallbackDelta = 1;
+  while (survivors.length < 3) {
+    const candidate = String(value + fallbackDelta);
+    fallbackDelta += 1;
+    if (candidate.length === length && candidate !== digits && !survivors.includes(candidate)) survivors.push(candidate);
+  }
+
+  return assignKeys([
+    { label: digits, value, isCorrect: true },
+    ...survivors.map((label) => ({ label, value: Number(label), isCorrect: false })),
+  ]);
+};
+
 /* ---------- pipeline ---------- */
 
 const lastDigit = (value: number) => Math.abs(Math.round(value)) % 10;

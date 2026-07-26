@@ -455,6 +455,99 @@ export const calculateAnzanSessionMetrics = (
   };
 };
 
+/** Métricas de Contrarreloj: el héroe es el score (aciertos en tiempo fijo). */
+export const calculateBlitzMetrics = (
+  answers: UserAnswer[],
+  totalTimeMs: number,
+  config: { level: TrainingConfig['level']; category: TrainingConfig['category']; durationSec: number },
+  sessions: TrainingSession[] = [],
+): SessionMetrics => {
+  const { correct, incorrect, accuracy, averageTimeMs, fastestTimeMs, slowestTimeMs, slowestAnswer } = baseMetrics(answers, totalTimeMs);
+  const paceFactor = Math.max(0, 1 - averageTimeMs / 8000);
+  const speedScore = Math.round(accuracy * 0.55 + paceFactor * 100 * 0.45);
+  const durationFactor = config.durationSec <= 60 ? 1.15 : config.durationSec <= 120 ? 1.05 : 0.97;
+  const difficulty = levelDifficulty[config.level] * (categoryDifficulty[config.category] ?? 1.25) * durationFactor;
+  const capacity = eloCapacity(speedScore, accuracy, difficulty, 'blitz', sessions);
+  const categories = categoryRead(answers);
+  const perMinute = totalTimeMs > 0 ? Math.round((correct / (totalTimeMs / 60000)) * 10) / 10 : 0;
+
+  return {
+    totalTimeMs,
+    averageTimeMs,
+    fastestTimeMs,
+    slowestTimeMs,
+    correct,
+    incorrect,
+    accuracy,
+    speedScore,
+    recommendation: accuracy < 75
+      ? 'Vas rápido pero impreciso: cada fallo regala tiempo. Apunta a 85%+.'
+      : 'Score sólido. La revancha inmediata es donde se baten récords.',
+    analysis: `${correct} aciertos en ${Math.round(totalTimeMs / 1000)} s (${perMinute}/min) con ${accuracy}% de precisión.`,
+    weakestCategory: categories.weakest || 'Mixto',
+    bestCategory: categories.best || 'Sin datos',
+    slowestPrompt: slowestAnswer?.prompt ?? '--',
+    improvementFocus: [
+      accuracy < 75 ? 'Precisión primero: un fallo cuesta más que dos segundos de pausa.' : 'Sube de nivel cuando el score se estanque dos sesiones.',
+      `Tu punto lento: ${categories.weakest || 'mixto'}. Un bloque corto ahí sube el score.`,
+      'Compara solo contra el mismo preset de duración.',
+    ],
+    status: accuracy >= 85 ? 'Ritmo competitivo' : accuracy >= 70 ? 'Velocidad con fugas' : 'Calibrando ritmo',
+    enduranceInsight: config.durationSec >= 180 ? 'Buena resistencia si el ritmo del último minuto igualó al primero.' : 'Prueba 180 s para medir resistencia.',
+    currentStreak: correct,
+    bestStreak: bestRun(answers),
+    completed: correct,
+    ...capacity,
+  };
+};
+
+/** Métricas de Memoria de Dígitos: el héroe es el span máximo alcanzado. */
+export const calculateDigitSpanMetrics = (
+  answers: UserAnswer[],
+  totalTimeMs: number,
+  spanHistory: number[],
+  sessions: TrainingSession[] = [],
+): SessionMetrics => {
+  const { correct, incorrect, accuracy, averageTimeMs, fastestTimeMs, slowestTimeMs } = baseMetrics(answers, totalTimeMs);
+  const peakSpan = spanHistory.length ? Math.max(...spanHistory) : 0;
+  const endSpan = spanHistory[spanHistory.length - 1] ?? 0;
+  const avgSpan = spanHistory.length ? spanHistory.reduce((sum, value) => sum + value, 0) / spanHistory.length : 0;
+  const paceFactor = Math.max(0, 1 - averageTimeMs / 7000);
+  const speedScore = Math.round(accuracy * 0.6 + paceFactor * 100 * 0.4);
+  const difficulty = 0.6 + avgSpan * 0.11;
+  const capacity = eloCapacity(speedScore, accuracy, difficulty, 'digitSpan', sessions);
+
+  return {
+    totalTimeMs,
+    averageTimeMs,
+    fastestTimeMs,
+    slowestTimeMs,
+    correct,
+    incorrect,
+    accuracy,
+    speedScore,
+    recommendation: peakSpan >= 8
+      ? 'Span de élite: agrupa en bloques de 3-4 dígitos para ir más lejos.'
+      : 'Agrupa los dígitos de 2 en 2 o de 3 en 3: la memoria retiene bloques, no cifras.',
+    analysis: `Span máximo: ${peakSpan} dígitos. Cerraste en ${endSpan}. ${correct}/${answers.length} rondas correctas.`,
+    weakestCategory: 'Memoria de dígitos',
+    bestCategory: peakSpan >= 7 ? 'Retención visual' : 'En construcción',
+    slowestPrompt: '--',
+    improvementFocus: [
+      'Visualiza el número como imagen, no como lista de cifras.',
+      'Agrupa: 4823 se retiene mejor como 48·23.',
+      peakSpan >= 7 ? 'Reta con menos tiempo de exposición conforme domines.' : 'La media humana es 7±2: vas en camino.',
+    ],
+    status: peakSpan >= 9 ? 'Memoria excepcional' : peakSpan >= 7 ? 'Memoria sólida' : 'Base en construcción',
+    enduranceInsight: 'El span crece con práctica diaria corta, no con maratones.',
+    bestStreak: bestRun(answers),
+    peakRung: peakSpan,
+    endRung: endSpan,
+    avgRung: Math.round(avgSpan * 10) / 10,
+    ...capacity,
+  };
+};
+
 /** Métricas de una sesión de flash cards (autoevaluación Leitner). */
 export const calculateFlashCardsMetrics = (answers: UserAnswer[], totalTimeMs: number, sessions: TrainingSession[] = []): SessionMetrics => {
   const correct = answers.filter((answer) => answer.isCorrect).length;

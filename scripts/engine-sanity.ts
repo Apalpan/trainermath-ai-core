@@ -86,7 +86,11 @@ for (const level of levels) {
   mult.forEach((exercise) => checkExercise(exercise, `multiplication/${level}`));
   const cepre = generateCepreExercises({ block: 'mixed', level, amount: 20, mode: 'practice', instantFeedback: true });
   if (cepre.length !== 20) fail(`cepre/${level}: ${cepre.length} ≠ 20`);
-  cepre.forEach((exercise) => checkExercise(exercise, `cepre/${level}`));
+  cepre.forEach((exercise) => {
+    checkExercise(exercise, `cepre/${level}`);
+    if (!Number.isInteger(exercise.answer)) fail(`cepre/${level}: respuesta decimal ${exercise.answer} — «${exercise.prompt}»`);
+    if (exercise.prompt.includes('.9999') || exercise.prompt.includes('.3333') || /\d+\.\d{6,}/.test(exercise.prompt)) fail(`cepre/${level}: basura float en prompt — «${exercise.prompt}»`);
+  });
 }
 
 // 6. anti-atajo: en una muestra grande, ≥60% de ejercicios tienen un distractor con el mismo último dígito

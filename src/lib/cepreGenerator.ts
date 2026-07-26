@@ -20,10 +20,13 @@ const numberProblem = (level: Level): Exercise => {
   const type = pick(['fraction', 'percentage', 'sets', 'mcm', 'combined', 'average', 'series', 'ratio'] as const);
 
   if (type === 'fraction') {
+    // el total DEBE ser múltiplo del denominador: la división siempre es exacta
     const denominator = rand(6, Math.round(12 * scale));
     const numerator = rand(2, denominator - 2);
-    const value = rand(24, Math.round(80 * scale));
-    const answer = Math.round((value * numerator) / denominator);
+    const k = rand(Math.max(3, Math.ceil(24 / denominator)), Math.max(4, Math.round((80 * scale) / denominator)));
+    const value = denominator * k;
+    const answer = numerator * k;
+    const shownFraction = fractionText(numerator, denominator);
     return createCepreExercise({
       category: 'fractions',
       block: 'numbers',
@@ -33,17 +36,19 @@ const numberProblem = (level: Level): Exercise => {
       skill: 'Traducir fracción a operación directa',
       expectedError: 'planteamiento',
       targetTimeSec: 70,
-      prompt: `De ${value} elementos, ${fractionText(numerator, denominator)} cumple una condición. ¿Cuántos cumplen?`,
+      prompt: `De ${value} elementos, ${shownFraction} cumple una condición. ¿Cuántos cumplen?`,
       answer,
       answerLabel: String(answer),
       choices: numericChoices(answer, String(answer), 3),
-      explanation: `${value} × ${numerator}/${denominator} = ${answer}.`,
+      explanation: `${value} × ${shownFraction} = ${answer}.`,
     });
   }
 
   if (type === 'percentage') {
-    const base = rand(12, Math.round(45 * scale)) * 10;
+    // base construida para que (base × percent) sea múltiplo exacto de 100
     const percent = pick([10, 12, 15, 20, 25, 30, 40, 50]);
+    const step = 100 / gcd(percent, 100);
+    const base = step * rand(Math.max(2, Math.ceil(120 / step)), Math.max(3, Math.floor((450 * scale) / step)));
     const answer = (base * percent) / 100;
     return createCepreExercise({
       category: 'percentages',
@@ -108,8 +113,11 @@ const numberProblem = (level: Level): Exercise => {
   if (type === 'average') {
     const a = rand(8, Math.round(20 * scale));
     const b = rand(8, Math.round(20 * scale));
-    const c = rand(8, Math.round(20 * scale));
-    const answer = Math.round((a + b + c) / 3);
+    // c se ajusta para que la suma sea múltiplo de 3: el promedio siempre es entero
+    let c = rand(8, Math.round(20 * scale));
+    c -= (a + b + c) % 3;
+    if (c < 8) c += 3;
+    const answer = (a + b + c) / 3;
     return createCepreExercise({
       category: 'averages',
       block: 'numbers',
@@ -282,10 +290,12 @@ const algebraProblem = (level: Level): Exercise => {
   }
 
   if (type === 'fractionalEquation') {
-    const x = rand(2, Math.round(10 * scale));
+    // el cociente se genera entero primero: x múltiplo exacto del divisor, total siempre entero
     const divisor = pick([2, 3, 4, 5]);
+    const quotient = rand(2, Math.max(3, Math.round((10 * scale) / 2)));
+    const x = divisor * quotient;
     const add = rand(3, 12);
-    const total = x / divisor + add;
+    const total = quotient + add;
     return createCepreExercise({
       category: 'algebra',
       block: 'algebra',
@@ -299,7 +309,7 @@ const algebraProblem = (level: Level): Exercise => {
       answer: x,
       answerLabel: String(x),
       choices: numericChoices(x, String(x), 2),
-      explanation: `x/${divisor} = ${total - add}; x = ${x}.`,
+      explanation: `x/${divisor} = ${quotient}; x = ${quotient} × ${divisor} = ${x}.`,
     });
   }
 
@@ -352,9 +362,9 @@ const generateUnique = (amount: number, create: () => Exercise): Exercise[] => {
   }
 
   while (exercises.length < amount) {
+    // fallback: se acepta el duplicado con id nuevo — nunca deformar el prompt visible
     const exercise = create();
-    const variant = { ...exercise, id: crypto.randomUUID(), prompt: `${exercise.prompt} · ${exercises.length + 1}` };
-    exercises.push(variant);
+    exercises.push({ ...exercise, id: crypto.randomUUID() });
   }
 
   return exercises;

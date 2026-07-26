@@ -16,7 +16,7 @@ import type {
   TrainingConfig,
   UserAnswer,
 } from '../../../types';
-import { ChoiceGrid, ComboPill, ExitConfirm, ProgressTopBar } from '../components/ui';
+import { ChoiceGrid, ComboPill, ExitConfirm, ProgressTopBar, SessionClock } from '../components/ui';
 
 export interface ArenaResult {
   answers: UserAnswer[];
@@ -247,6 +247,7 @@ export default function ArenaScreen({
 
       <p className="fixed right-5 top-4 z-40 text-sm font-bold" style={{ color: 'var(--tm-fg-muted)' }} aria-live="polite">
         {String(answers.length + (isLocked ? 0 : 1)).padStart(2, '0')} / {total}
+        <span className="ml-2 opacity-80"><SessionClock startedAt={startedAtRef.current} /></span>
       </p>
 
       {showPeek && (

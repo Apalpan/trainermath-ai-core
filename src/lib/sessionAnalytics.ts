@@ -320,6 +320,14 @@ export const displaySessionConfig = (session: TrainingSession) => {
     return `${session.answers.length} tarjetas · ${session.config.decks.length} mazo(s)`;
   }
 
+  if (session.kind === 'blitz' && 'durationSec' in session.config) {
+    return `${session.metrics.correct} aciertos en ${session.config.durationSec} s`;
+  }
+
+  if (session.kind === 'digitSpan') {
+    return `Span máximo ${session.metrics.peakRung ?? 0} dígitos`;
+  }
+
   if ('amount' in session.config && 'level' in session.config) {
     return `${session.config.amount} preguntas · ${levelLabels[session.config.level]}`;
   }

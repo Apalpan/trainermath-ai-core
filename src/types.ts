@@ -20,7 +20,7 @@ export type Category =
 export type TrainingMode = 'accuracy' | 'speed' | 'mixed';
 export type ChoiceKey = 'A' | 'B' | 'C' | 'D';
 export type TrainerProduct = 'math' | 'cepre';
-export type DrillKind = 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'doubleX2' | 'cepreExam' | 'flashCards';
+export type DrillKind = 'operations' | 'flashAnzan' | 'multiplicationSprint' | 'doubleX2' | 'cepreExam' | 'flashCards' | 'blitz' | 'digitSpan';
 export type AnzanOperationMode = 'addition' | 'additionSubtraction';
 export type AnzanAdvanceMode = 'timed' | 'manual';
 export type AnzanPreset = 'easy' | 'medium' | 'hard' | 'expert' | 'custom';
@@ -92,6 +92,22 @@ export interface FlashCardsSessionConfig {
   /** Ids de mazos de flashCards.ts seleccionados. */
   decks: string[];
   amount: number;
+}
+
+export type BlitzDurationSec = 60 | 120 | 180;
+
+export interface BlitzConfig {
+  level: Level;
+  category: Category;
+  topics?: PracticeTopic[];
+  durationSec: BlitzDurationSec;
+}
+
+export interface DigitSpanConfig {
+  /** Rondas por sesión (fijo 10 en UI). */
+  rounds: number;
+  /** Dígitos iniciales; si falta, continúa donde quedó la sesión anterior. */
+  startDigits?: number;
 }
 
 export interface AnswerChoice {
@@ -204,7 +220,7 @@ export interface TrainingSession {
   id: string;
   createdAt: string;
   kind: DrillKind;
-  config: TrainingConfig | AnzanConfig | MultiplicationConfig | DoubleX2Config | CepreConfig | FlashCardsSessionConfig;
+  config: TrainingConfig | AnzanConfig | MultiplicationConfig | DoubleX2Config | CepreConfig | FlashCardsSessionConfig | BlitzConfig | DigitSpanConfig;
   metrics: SessionMetrics;
   answers: UserAnswer[];
   syncStatus?: SyncStatus;
@@ -249,6 +265,8 @@ export const drillLabels: Record<DrillKind, string> = {
   doubleX2: 'Multiplicar x2',
   cepreExam: 'Examen CEPRE',
   flashCards: 'Flash Cards',
+  blitz: 'Contrarreloj',
+  digitSpan: 'Memoria de Dígitos',
 };
 
 export const multiplicationTypeLabels: Record<MultiplicationType, string> = {

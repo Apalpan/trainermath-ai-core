@@ -5,7 +5,9 @@ import { getNextRank, getRankForElo, loadDailyGoal, loadDayStreak, registerSessi
 import type { RankDef } from '../../lib/gameSystem';
 import {
   calculateAnzanSessionMetrics,
+  calculateBlitzMetrics,
   calculateCepreMetrics,
+  calculateDigitSpanMetrics,
   calculateDoubleX2Metrics,
   calculateFlashCardsMetrics,
   calculateMetrics,
@@ -17,7 +19,9 @@ import { isSoundEnabled, playRankUp, playSessionComplete, setSoundEnabled } from
 import { loadSessions, saveSession, updateSessionSyncStatus } from '../../lib/storage';
 import type {
   AnzanConfig,
+  BlitzConfig,
   CepreConfig,
+  DigitSpanConfig,
   DoubleX2Config,
   DrillKind,
   MultiplicationConfig,
@@ -29,6 +33,10 @@ import ArenaScreen from './screens/ArenaScreen';
 import type { ArenaResult } from './screens/ArenaScreen';
 import AnzanScreen from './screens/AnzanScreen';
 import type { AnzanResult } from './screens/AnzanScreen';
+import BlitzScreen from './screens/BlitzScreen';
+import type { BlitzResult } from './screens/BlitzScreen';
+import DigitSpanScreen from './screens/DigitSpanScreen';
+import type { DigitSpanResult } from './screens/DigitSpanScreen';
 import FlashCardsScreen from './screens/FlashCardsScreen';
 import type { FlashCardsResult } from './screens/FlashCardsScreen';
 import HomeScreen, { SheetSyncPanel } from './screens/HomeScreen';
@@ -87,6 +95,10 @@ const defaultX2: DoubleX2Config = { start: 12, stepLimit: 20 };
 
 const defaultFlashCards: FlashCardsSetup = { decks: ['tablasExtendidas', 'cuadrados', 'fraccionPorcentaje'], amount: 15 };
 
+const defaultBlitz: BlitzConfig = { level: 'level2', category: 'mixed', topics: ['mixed'], durationSec: 60 };
+
+const defaultDigitSpan: DigitSpanConfig = { rounds: 10 };
+
 const readTheme = (): TrainerTheme => {
   try {
     return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
@@ -102,6 +114,8 @@ interface StoredConfigs {
   x2?: DoubleX2Config;
   cepre?: CepreConfig;
   flashCards?: FlashCardsSetup;
+  blitz?: BlitzConfig;
+  digitSpan?: DigitSpanConfig;
 }
 
 const readConfigs = (): StoredConfigs => {
@@ -137,6 +151,8 @@ export default function TrainerMathApp() {
   const [x2, setX2] = useState<DoubleX2Config>({ ...defaultX2, ...stored.x2 });
   const [cepre, setCepre] = useState<CepreConfig>({ ...defaultCepre, ...stored.cepre });
   const [flashCards, setFlashCards] = useState<FlashCardsSetup>({ ...defaultFlashCards, ...stored.flashCards });
+  const [blitz, setBlitz] = useState<BlitzConfig>({ ...defaultBlitz, ...stored.blitz });
+  const [digitSpan, setDigitSpan] = useState<DigitSpanConfig>({ ...defaultDigitSpan, ...stored.digitSpan });
 
   const [sheetEndpoint, setSheetEndpointState] = useState('');
   const [syncPending, setSyncPending] = useState(0);
@@ -161,11 +177,11 @@ export default function TrainerMathApp() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(CONFIGS_KEY, JSON.stringify({ operations, multiplication, anzan, x2, cepre, flashCards }));
+      localStorage.setItem(CONFIGS_KEY, JSON.stringify({ operations, multiplication, anzan, x2, cepre, flashCards, blitz, digitSpan }));
     } catch {
       // localStorage puede fallar en contextos restringidos.
     }
-  }, [anzan, cepre, flashCards, multiplication, operations, x2]);
+  }, [anzan, blitz, cepre, digitSpan, flashCards, multiplication, operations, x2]);
 
   const insights = useMemo(() => analyzeSessions(sessions), [sessions]);
   const daily = useMemo(() => loadDailyGoal(), [screen]);
@@ -279,6 +295,34 @@ export default function TrainerMathApp() {
     completeSession(session, { xpEarned: Math.max(0, (result.history.length - 1) * 6), bestCombo: result.history.length - 1 });
   }, [completeSession, sessions, x2]);
 
+  const onBlitzComplete = useCallback((result: BlitzResult) => {
+    const metrics = calculateBlitzMetrics(result.answers, result.totalTimeMs, blitz, sessions);
+    metrics.avgRung = Math.round(result.ladderSummary.avgRung * 10) / 10;
+    metrics.peakRung = result.ladderSummary.peakRung;
+    metrics.endRung = result.ladderSummary.endRung;
+    const session: TrainingSession = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      kind: 'blitz',
+      config: blitz,
+      metrics,
+      answers: result.answers,
+    };
+    completeSession(session, result);
+  }, [blitz, completeSession, sessions]);
+
+  const onDigitSpanComplete = useCallback((result: DigitSpanResult) => {
+    const session: TrainingSession = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      kind: 'digitSpan',
+      config: digitSpan,
+      metrics: calculateDigitSpanMetrics(result.answers, result.totalTimeMs, result.spanHistory, sessions),
+      answers: result.answers,
+    };
+    completeSession(session, result);
+  }, [completeSession, digitSpan, sessions]);
+
   const onFlashCardsComplete = useCallback((result: FlashCardsResult) => {
     const session: TrainingSession = {
       id: crypto.randomUUID(),
@@ -305,7 +349,7 @@ export default function TrainerMathApp() {
   const latestSession = sessions[0];
 
   return (
-    <main className="tm-app" data-theme={theme}>
+    <main className="tm-app" data-theme={theme} data-surface={screen === 'arena' ? 'focus' : undefined}>
       {screen === 'home' && (
         <HomeScreen
           sessions={sessions}
@@ -345,12 +389,16 @@ export default function TrainerMathApp() {
           x2={x2}
           cepre={cepre}
           flashCards={flashCards}
+          blitz={blitz}
+          digitSpan={digitSpan}
           onChangeOperations={setOperations}
           onChangeMultiplication={setMultiplication}
           onChangeAnzan={setAnzan}
           onChangeX2={setX2}
           onChangeCepre={setCepre}
           onChangeFlashCards={setFlashCards}
+          onChangeBlitz={setBlitz}
+          onChangeDigitSpan={setDigitSpan}
           onStart={startRun}
           onBack={() => setScreen('home')}
         />
@@ -382,6 +430,14 @@ export default function TrainerMathApp() {
           onComplete={onFlashCardsComplete}
           onExit={() => setScreen('home')}
         />
+      )}
+
+      {screen === 'arena' && drill === 'blitz' && (
+        <BlitzScreen key={`blitz-${runId}`} config={blitz} onComplete={onBlitzComplete} onExit={() => setScreen('setup')} />
+      )}
+
+      {screen === 'arena' && drill === 'digitSpan' && (
+        <DigitSpanScreen key={`span-${runId}`} config={digitSpan} onComplete={onDigitSpanComplete} onExit={() => setScreen('setup')} />
       )}
 
       {screen === 'results' && latestSession && outcome && (

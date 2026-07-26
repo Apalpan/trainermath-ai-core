@@ -5,7 +5,7 @@ import { buildSessionQueue, gradeCard } from '../../../lib/flashCards';
 import { computeXp, registerOperation } from '../../../lib/gameSystem';
 import { playCorrect, playIncorrect } from '../../../lib/soundEngine';
 import type { UserAnswer } from '../../../types';
-import { ComboPill, ExitConfirm, Keycap, ProgressTopBar } from '../components/ui';
+import { ComboPill, ExitConfirm, Keycap, ProgressTopBar, SessionClock } from '../components/ui';
 
 export interface FlashCardsResult {
   answers: UserAnswer[];
@@ -193,6 +193,7 @@ export default function FlashCardsScreen({
 
       <p className="fixed right-5 top-4 z-40 text-sm font-bold" style={{ color: 'var(--tm-fg-muted)' }}>
         {Math.min(gradedRef.current + 1, totalPlanned)} / {totalPlanned}
+        <span className="ml-2 opacity-80"><SessionClock startedAt={startedAtRef.current} /></span>
       </p>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8">

@@ -12,6 +12,8 @@ const hasAllowedConfig = (session: TrainingSession) => {
   if (session.kind === 'multiplicationSprint') return typeof config.multiplicationType === 'string' && config.multiplicationType in multiplicationTypeLabels;
   if (session.kind === 'doubleX2') return typeof config.start === 'number' && config.start > 0;
   if (session.kind === 'flashCards') return Array.isArray(config.decks) && typeof config.amount === 'number';
+  if (session.kind === 'blitz') return typeof config.durationSec === 'number' && config.durationSec >= 30;
+  if (session.kind === 'digitSpan') return typeof config.rounds === 'number' && config.rounds > 0;
   if ('category' in config) return typeof config.category === 'string' && config.category in categoryLabels;
   if ('block' in config) return typeof config.block === 'string' && config.block in cepreBlockLabels;
   return false;

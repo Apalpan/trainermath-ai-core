@@ -6,11 +6,13 @@ import {
   Brain,
   Calculator,
   Cloud,
+  Eye,
   Flame,
   Layers,
   Moon,
   Sun,
   Target,
+  Timer,
   Volume2,
   VolumeX,
   X,
@@ -33,7 +35,9 @@ interface DrillCardDef {
 
 const drillCards: DrillCardDef[] = [
   { drill: 'flashAnzan', title: 'Flash Anzan', tagline: 'Retén la secuencia. Un número a la vez.', icon: <Brain size={20} />, featured: true },
+  { drill: 'blitz', title: 'Contrarreloj', tagline: '¿Cuántas resuelves en 60 segundos?', icon: <Timer size={20} /> },
   { drill: 'operations', title: 'Operaciones', tagline: 'Aritmética, fracciones y álgebra adaptativas', icon: <Target size={20} /> },
+  { drill: 'digitSpan', title: 'Memoria de Dígitos', tagline: 'Retén el número. Amplía tu span.', icon: <Eye size={20} /> },
   { drill: 'multiplicationSprint', title: 'Multiplicación Sprint', tagline: '1×1, 2×2 y encadenadas por velocidad', icon: <Calculator size={20} /> },
   { drill: 'flashCards', title: 'Flash Cards', tagline: 'Memoriza tablas, cuadrados y equivalencias', icon: <Layers size={20} /> },
   { drill: 'doubleX2', title: 'Multiplicar x2', tagline: 'Duplicación progresiva sin frenos', icon: <ArrowRight size={20} /> },
@@ -125,24 +129,37 @@ export default function HomeScreen({
                 <button
                   key={card.drill}
                   type="button"
-                  className={`tm-card tm-press group text-left transition hover:-translate-y-0.5 ${card.featured ? 'sm:col-span-2' : ''}`}
-                  style={{ padding: card.featured ? '1.5rem' : '1.15rem' }}
+                  className={`tm-card tm-drill tm-press group text-left ${card.featured ? 'sm:col-span-2' : ''}`}
+                  data-drill={card.drill}
+                  style={{ padding: card.featured ? '1.5rem' : '1.15rem', boxShadow: card.featured ? 'var(--tm-shadow-md), var(--tm-hairline)' : undefined }}
                   onClick={() => onSelectDrill(card.drill)}
                 >
                   <span className="flex items-start justify-between gap-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: 'var(--tm-blue-soft)', color: 'var(--tm-blue)' }}>
+                    <span className={`tm-drill-icon shrink-0 ${card.featured ? 'h-12 w-12' : 'h-10 w-10'}`}>
                       {card.icon}
                     </span>
                     {best ? (
                       <span className="text-xs font-bold" style={{ color: 'var(--tm-fg-muted)' }}>ELO {best}</span>
-                    ) : (
-                      <span className="text-xs font-bold" style={{ color: 'var(--tm-fg-muted)' }}>Sin registro</span>
+                    ) : card.featured && sessions.length === 0 ? (
+                      <span className="text-xs font-bold" style={{ color: 'var(--tm-blue)' }}>Empieza aquí</span>
+                    ) : null}
+                  </span>
+                  <span className="flex items-end justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className={`tm-display mt-3 block font-bold ${card.featured ? 'text-xl' : 'text-base'}`} style={{ color: 'var(--tm-fg)' }}>
+                        {card.title}
+                      </span>
+                      <span className="mt-1 block text-sm font-medium leading-5" style={{ color: 'var(--tm-fg-mid)' }}>{card.tagline}</span>
+                    </span>
+                    {card.featured && (
+                      <ArrowRight
+                        size={18}
+                        className="mb-1 shrink-0 opacity-40 transition group-hover:translate-x-0.5 group-hover:opacity-100"
+                        style={{ color: 'var(--tm-fg-mid)' }}
+                        aria-hidden="true"
+                      />
                     )}
                   </span>
-                  <span className={`tm-display mt-3 block font-bold ${card.featured ? 'text-xl' : 'text-base'}`} style={{ color: 'var(--tm-fg)' }}>
-                    {card.title}
-                  </span>
-                  <span className="mt-1 block text-sm font-medium leading-5" style={{ color: 'var(--tm-fg-mid)' }}>{card.tagline}</span>
                 </button>
               );
             })}
@@ -222,12 +239,12 @@ function HeaderIcon({ children, label, onClick }: { children: ReactNode; label: 
 function MiniStat({ label, value, sub, icon }: { label: string; value: string; sub?: string; icon?: ReactNode }) {
   return (
     <div className="rounded-xl px-2.5 py-2" style={{ background: 'var(--tm-blue-soft)' }}>
-      <p className="text-[9px] font-extrabold uppercase tracking-[0.12em]" style={{ color: 'var(--tm-fg-muted)' }}>{label}</p>
+      <p className="text-[10.5px] font-extrabold uppercase tracking-[0.12em]" style={{ color: 'var(--tm-fg-muted)' }}>{label}</p>
       <p className="tm-display mt-0.5 flex items-center gap-1 text-sm font-bold" style={{ color: 'var(--tm-fg)' }}>
         {icon && <span style={{ color: 'var(--tm-accent)' }}>{icon}</span>}
         {value}
       </p>
-      {sub ? <p className="text-[9px] font-semibold" style={{ color: 'var(--tm-fg-muted)' }}>{sub}</p> : null}
+      {sub ? <p className="text-[10.5px] font-semibold" style={{ color: 'var(--tm-fg-muted)' }}>{sub}</p> : null}
     </div>
   );
 }
@@ -240,6 +257,8 @@ const sessionTitle = (session: TrainingSession) => {
     doubleX2: 'Multiplicar x2',
     cepreExam: 'CEPRE',
     flashCards: 'Flash Cards',
+    blitz: 'Contrarreloj',
+    digitSpan: 'Memoria de Dígitos',
   };
   return titles[session.kind];
 };
