@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import type { AnswerChoice, ChoiceKey } from '../../../types';
 import type { RankDef } from '../../../lib/gameSystem';
-import { getComboTier } from '../../../lib/gameSystem';
+import { getComboTier, isComboMilestone } from '../../../lib/gameSystem';
 
 export function SectionLabel({ children }: { children: ReactNode }) {
   return <p className="tm-eyebrow">{children}</p>;
@@ -69,12 +69,15 @@ export function ChoiceGrid({
   isLocked,
   pressedKey,
   onSelect,
+  stagger,
 }: {
   choices: AnswerChoice[];
   selectedKey: ChoiceKey | null;
   isLocked: boolean;
   pressedKey: ChoiceKey | null;
   onSelect: (choice: AnswerChoice) => void;
+  /** entrada escalonada: solo para momentos de baja frecuencia (Anzan, Memoria) */
+  stagger?: boolean;
 }) {
   const visualState = (choice: AnswerChoice): ChoiceVisualState => {
     if (!isLocked) return 'idle';
@@ -83,7 +86,7 @@ export function ChoiceGrid({
     return 'dim';
   };
   return (
-    <div className="mx-auto grid w-full max-w-3xl gap-3 sm:grid-cols-2" role="group" aria-label="Opciones de respuesta">
+    <div className={`mx-auto grid w-full max-w-3xl gap-3 sm:grid-cols-2 ${stagger ? 'tm-stagger' : ''}`} role="group" aria-label="Opciones de respuesta">
       {choices.map((choice) => (
         <ChoiceCard
           key={choice.key}
@@ -113,7 +116,7 @@ export function ComboPill({ combo, flare }: { combo: number; flare: boolean }) {
     <div aria-live="polite">
       {combo >= 2 && (
         <div
-          className={`tm-combo-pill ${flare ? 'tm-combo-flare' : ''}`}
+          className={`tm-combo-pill ${flare ? 'tm-combo-flare' : ''} ${flare && isComboMilestone(combo) ? 'tm-combo-ping' : ''}`}
           data-tier={tier.tier}
           aria-label={`Combo ${combo}`}
         >
@@ -179,6 +182,63 @@ export function Sparkline({ values }: { values: number[] }) {
     <svg viewBox="0 0 200 44" className="h-11 w-full" aria-hidden="true">
       <polyline points={points} fill="none" stroke="var(--tm-blue)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/**
+ * Anillo de progreso SVG (firma Lumosity): stroke-dashoffset animado por transición CSS.
+ * `value` en 0..1. El anillo "cierra" con un micro-pulso al llegar a 1.
+ */
+export function ProgressRing({
+  value,
+  size = 56,
+  stroke = 5,
+  color = 'var(--tm-blue)',
+  children,
+  label,
+}: {
+  value: number;
+  size?: number;
+  stroke?: number;
+  color?: string;
+  children?: ReactNode;
+  label?: string;
+}) {
+  const clamped = Math.min(1, Math.max(0, value));
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  // arranca vacío y transiciona al valor al montar (rAF para forzar el frame inicial)
+  const [drawn, setDrawn] = useState(0);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => setDrawn(clamped)));
+    return () => cancelAnimationFrame(frame);
+  }, [clamped]);
+  return (
+    <div
+      className={clamped >= 1 ? 'tm-ring-complete' : undefined}
+      style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}
+      role={label ? 'img' : undefined}
+      aria-label={label}
+    >
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }} aria-hidden="true">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--tm-border)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - drawn)}
+          style={{ transition: 'stroke-dashoffset 700ms var(--ease-out)' }}
+        />
+      </svg>
+      {children && (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>{children}</div>
+      )}
+    </div>
   );
 }
 

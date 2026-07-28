@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import { cloneElement, useMemo, useState } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import {
   ArrowRight,
   BookOpenCheck,
@@ -23,7 +23,7 @@ import type { DailyGoalState, StreakState } from '../../../lib/gameSystem';
 import { getNextRank, getRankForElo, getRankProgress, loadXp } from '../../../lib/gameSystem';
 import { TARGET_SHEET_URL } from '../../../lib/sheetSync';
 import type { DrillKind, TrainingSession } from '../../../types';
-import { RankBadge, SectionLabel, Sparkline } from '../components/ui';
+import { ProgressRing, RankBadge, SectionLabel, Sparkline } from '../components/ui';
 
 interface DrillCardDef {
   drill: DrillKind;
@@ -122,7 +122,7 @@ export default function HomeScreen({
       <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section>
           <h1 className="tm-display text-2xl font-bold sm:text-3xl" style={{ color: 'var(--tm-fg)' }}>¿Qué entrenas hoy?</h1>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="tm-stagger mt-5 grid gap-3 sm:grid-cols-2">
             {drillCards.map((card) => {
               const best = bestByDrill.get(card.drill);
               return (
@@ -134,6 +134,9 @@ export default function HomeScreen({
                   style={{ padding: card.featured ? '1.5rem' : '1.15rem', boxShadow: card.featured ? 'var(--tm-shadow-md), var(--tm-hairline)' : undefined }}
                   onClick={() => onSelectDrill(card.drill)}
                 >
+                  <span className="tm-drill-watermark" aria-hidden="true">
+                    {cloneElement(card.icon as ReactElement<{ size?: number }>, { size: card.featured ? 120 : 92 })}
+                  </span>
                   <span className="flex items-start justify-between gap-3">
                     <span className={`tm-drill-icon shrink-0 ${card.featured ? 'h-12 w-12' : 'h-10 w-10'}`}>
                       {card.icon}
@@ -178,16 +181,29 @@ export default function HomeScreen({
             <div className="tm-xp-track mt-4">
               <div className="tm-xp-bar" style={{ width: `${Math.round(rankProgress * 100)}%` }} />
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              <MiniStat label="Hoy" value={`${daily.completedOpsToday}/${daily.targetOps}`} sub={`${dailyPct}%`} />
-              <MiniStat
-                label="Racha"
-                value={dayStreak.dayStreak ? `${dayStreak.dayStreak}d` : '—'}
-                sub={dayStreak.bestDayStreak ? `mejor ${dayStreak.bestDayStreak}` : ''}
-                icon={dayStreak.dayStreak >= 2 ? <Flame size={12} /> : undefined}
-              />
-              <MiniStat label="XP hoy" value={String(xp.todayXp)} sub={`total ${formatXp(xp.lifetimeXp)}`} />
+            <div className="mt-4 flex items-center gap-3">
+              <ProgressRing
+                value={daily.completedOpsToday / daily.targetOps}
+                size={64}
+                stroke={5}
+                color={dailyPct >= 100 ? 'var(--tm-good)' : 'var(--tm-blue)'}
+                label={`Meta diaria: ${daily.completedOpsToday} de ${daily.targetOps} operaciones`}
+              >
+                <span className="tm-display text-xs font-bold" style={{ color: 'var(--tm-fg)' }}>{dailyPct}%</span>
+              </ProgressRing>
+              <div className="grid flex-1 grid-cols-2 gap-2">
+                <MiniStat
+                  label="Racha"
+                  value={dayStreak.dayStreak ? `${dayStreak.dayStreak}d` : '—'}
+                  sub={dayStreak.bestDayStreak ? `mejor ${dayStreak.bestDayStreak}` : ''}
+                  icon={dayStreak.dayStreak >= 2 ? <Flame size={12} /> : undefined}
+                />
+                <MiniStat label="XP hoy" value={String(xp.todayXp)} sub={`total ${formatXp(xp.lifetimeXp)}`} />
+              </div>
             </div>
+            <p className="mt-2 text-[10.5px] font-semibold" style={{ color: 'var(--tm-fg-muted)' }}>
+              Meta de hoy: {daily.completedOpsToday}/{daily.targetOps} operaciones
+            </p>
           </section>
 
           <section className="tm-card p-5">

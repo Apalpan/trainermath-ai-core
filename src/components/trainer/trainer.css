@@ -320,8 +320,8 @@
 }
 
 @keyframes tm-screen-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ---------- barra de progreso ---------- */
@@ -447,14 +447,14 @@
 .tm-drill:focus-visible::before { opacity: 1; }
 .tm-drill:active { transform: translateY(0) scale(0.99); }
 
-.tm-drill[data-drill='flashAnzan'] { --tm-drill-hue: 265; }
-.tm-drill[data-drill='blitz'] { --tm-drill-hue: 225; }
-.tm-drill[data-drill='operations'] { --tm-drill-hue: 235; }
-.tm-drill[data-drill='digitSpan'] { --tm-drill-hue: 275; }
-.tm-drill[data-drill='multiplicationSprint'] { --tm-drill-hue: 210; }
-.tm-drill[data-drill='flashCards'] { --tm-drill-hue: 285; }
-.tm-drill[data-drill='doubleX2'] { --tm-drill-hue: 195; }
-.tm-drill[data-drill='cepreExam'] { --tm-drill-hue: 250; }
+.tm-app [data-drill='flashAnzan'] { --tm-drill-hue: 265; }
+.tm-app [data-drill='blitz'] { --tm-drill-hue: 225; }
+.tm-app [data-drill='operations'] { --tm-drill-hue: 235; }
+.tm-app [data-drill='digitSpan'] { --tm-drill-hue: 275; }
+.tm-app [data-drill='multiplicationSprint'] { --tm-drill-hue: 210; }
+.tm-app [data-drill='flashCards'] { --tm-drill-hue: 285; }
+.tm-app [data-drill='doubleX2'] { --tm-drill-hue: 195; }
+.tm-app [data-drill='cepreExam'] { --tm-drill-hue: 250; }
 
 .tm-drill-icon {
   display: grid;
@@ -593,6 +593,119 @@
   background: var(--tm-blue);
   transform-origin: left;
   transition: width 600ms var(--ease-out);
+}
+
+/* ---------- game-feel: entradas escalonadas ---------- */
+
+.tm-stagger > * {
+  animation: tm-screen-in 320ms var(--ease-out) both;
+}
+.tm-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.tm-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.tm-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.tm-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.tm-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.tm-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.tm-stagger > *:nth-child(7) { animation-delay: 240ms; }
+.tm-stagger > *:nth-child(8) { animation-delay: 280ms; }
+
+/* ---------- game-feel: press físico en tiles (la card se hunde, el icono se eleva) ---------- */
+
+.tm-drill-icon { transition: transform 160ms var(--ease-out); }
+@media (hover: hover) {
+  .tm-drill:hover .tm-drill-icon { transform: translateY(-2px) scale(1.06); }
+}
+.tm-drill:active .tm-drill-icon { transform: translateY(-1px) scale(1.03); }
+
+/* watermark de icono gigante: identidad de juego sin ruido */
+.tm-drill-watermark {
+  position: absolute;
+  right: -14px;
+  bottom: -18px;
+  opacity: 0.05;
+  pointer-events: none;
+  color: oklch(0.74 0.13 var(--tm-drill-hue));
+  transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
+}
+@media (hover: hover) {
+  .tm-drill:hover .tm-drill-watermark { opacity: 0.11; transform: translateY(-2px); }
+}
+
+/* ---------- game-feel: burst de acierto y vignette de fallo ---------- */
+
+.tm-burst {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0;
+}
+.tm-burst[data-kind='correct'] {
+  background: radial-gradient(42% 34% at 50% 42%, var(--tm-good-soft), transparent 70%);
+  animation: tm-burst 360ms var(--ease-out) both;
+}
+.tm-burst[data-kind='wrong'] {
+  background:
+    linear-gradient(to right, var(--tm-bad-soft), transparent 12%, transparent 88%, var(--tm-bad-soft)),
+    linear-gradient(to bottom, var(--tm-bad-soft), transparent 14%, transparent 86%, var(--tm-bad-soft));
+  animation: tm-burst 420ms var(--ease-out) both;
+}
+
+@keyframes tm-burst {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------- game-feel: ping del combo al subir de tier ---------- */
+
+.tm-combo-pill { position: relative; }
+.tm-combo-ping::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  opacity: 0;
+  animation: tm-ping 460ms var(--ease-out) both;
+  pointer-events: none;
+}
+
+@keyframes tm-ping {
+  0% { opacity: 0.8; transform: scale(0.94); }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+
+/* ---------- game-feel: cierre del anillo al 100% ---------- */
+
+.tm-ring-complete {
+  animation: tm-ring-close 260ms var(--ease-out) 700ms both;
+}
+
+@keyframes tm-ring-close {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- game-feel: intro de juego en setup ---------- */
+
+.tm-game-hero {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: oklch(0.62 0.12 var(--tm-drill-hue, var(--tm-hue)) / 0.13);
+  color: oklch(0.74 0.13 var(--tm-drill-hue, var(--tm-hue)));
+  box-shadow: inset 0 0 0 1px oklch(0.62 0.12 var(--tm-drill-hue, var(--tm-hue)) / 0.2), 0 0 44px oklch(0.62 0.14 var(--tm-drill-hue, var(--tm-hue)) / 0.18);
+  animation: tm-hero-in 320ms var(--ease-out) both;
+}
+.tm-app[data-theme='light'] .tm-game-hero { color: oklch(0.48 0.15 var(--tm-drill-hue, var(--tm-hue))); }
+
+@keyframes tm-hero-in {
+  from { opacity: 0; transform: scale(0.9) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 /* ---------- reduced motion: opacidad sí, movimiento no ---------- */

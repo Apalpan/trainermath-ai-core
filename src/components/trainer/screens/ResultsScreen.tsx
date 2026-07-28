@@ -4,7 +4,7 @@ import type { RankDef, SessionRecordResult } from '../../../lib/gameSystem';
 import { getRankProgress } from '../../../lib/gameSystem';
 import { formatCompactNumber, formatDuration } from '../../../lib/scoring';
 import type { TrainingSession } from '../../../types';
-import { Keycap, RankBadge, SectionLabel, StatChip, useCountUp } from '../components/ui';
+import { Keycap, ProgressRing, RankBadge, SectionLabel, StatChip, useCountUp } from '../components/ui';
 
 export interface GameOutcome {
   xpEarned: number;
@@ -87,13 +87,24 @@ export default function ResultsScreen({
         </p>
       )}
 
-      <div className="mt-4">
+      <div className="mt-5 flex flex-col items-center">
         <SectionLabel>{hero.label}</SectionLabel>
-        <p className="tm-display tm-hero-size tm-hero-glow mt-1 font-bold" style={{ color: 'var(--tm-fg)' }}>
-          {heroValue}
-          <span style={{ color: 'var(--tm-fg-muted)', fontSize: '0.45em' }}>{hero.suffix}</span>
-        </p>
-        <p className="mt-1 text-sm font-semibold" style={{ color: 'var(--tm-fg-mid)' }}>
+        {/* gauge de celebración estilo Lumosity: el anillo dibuja la precisión de la sesión */}
+        <div className="mt-4">
+          <ProgressRing
+            value={metrics.accuracy / 100}
+            size={224}
+            stroke={8}
+            color={metrics.accuracy >= 85 ? 'var(--tm-good)' : 'var(--tm-blue)'}
+            label={`Precisión ${metrics.accuracy}%`}
+          >
+            <p className="tm-display tm-hero-glow font-bold" style={{ color: 'var(--tm-fg)', fontSize: '3.4rem', lineHeight: 1 }}>
+              {heroValue}
+              <span style={{ color: 'var(--tm-fg-muted)', fontSize: '0.42em' }}>{hero.suffix}</span>
+            </p>
+          </ProgressRing>
+        </div>
+        <p className="mt-4 text-sm font-semibold" style={{ color: 'var(--tm-fg-mid)' }}>
           {session.kind === 'flashAnzan'
             ? `Mejor racha ${metrics.bestStreak ?? 0} · recall prom. ${formatDuration(metrics.averageTimeMs)}`
             : session.kind === 'doubleX2'
@@ -127,7 +138,7 @@ export default function ResultsScreen({
         </div>
       </div>
 
-      <div className="mx-auto mt-4 grid max-w-md grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="tm-stagger mx-auto mt-4 grid max-w-md grid-cols-2 gap-3 sm:grid-cols-4">
         <StatChip label="Tiempo total" value={formatDuration(metrics.totalTimeMs)} />
         <StatChip label="Tiempo prom." value={formatDuration(metrics.averageTimeMs)} />
         <StatChip label="Mejor combo" value={outcome.bestCombo ? `×${outcome.bestCombo}` : '—'} tone={outcome.records.newBestCombo ? 'accent' : undefined} />

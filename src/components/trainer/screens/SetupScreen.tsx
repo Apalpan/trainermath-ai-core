@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowLeft, ChevronDown, Play } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpenCheck, Brain, Calculator, ChevronDown, Eye, Layers, Play, Target, Timer } from 'lucide-react';
 import type { FlashDeckId } from '../../../lib/flashCards';
 import { flashDeckMetas, getDeckStats } from '../../../lib/flashCards';
 import type {
@@ -58,6 +58,17 @@ interface SetupProps {
   onStart: () => void;
   onBack: () => void;
 }
+
+const drillIcons: Record<DrillKind, ReactNode> = {
+  flashAnzan: <Brain size={30} />,
+  blitz: <Timer size={30} />,
+  operations: <Target size={30} />,
+  digitSpan: <Eye size={30} />,
+  multiplicationSprint: <Calculator size={30} />,
+  flashCards: <Layers size={30} />,
+  doubleX2: <ArrowRight size={30} />,
+  cepreExam: <BookOpenCheck size={30} />,
+};
 
 const drillTaglines: Record<DrillKind, string> = {
   operations: 'Aritmética, fracciones, álgebra y variantes de cálculo rápido con dificultad adaptativa.',
@@ -202,8 +213,13 @@ export default function SetupScreen(props: SetupProps) {
         <ArrowLeft size={16} /> Inicio
       </button>
 
-      <h1 className="tm-display mt-6 text-3xl font-bold" style={{ color: 'var(--tm-fg)' }}>{drillLabels[drill]}</h1>
-      <p className="mt-2 max-w-lg text-sm leading-6" style={{ color: 'var(--tm-fg-mid)' }}>{drillTaglines[drill]}</p>
+      <div className="mt-6 flex items-center gap-4" data-drill={drill}>
+        <div className="tm-game-hero">{drillIcons[drill]}</div>
+        <div>
+          <h1 className="tm-display text-3xl font-bold" style={{ color: 'var(--tm-fg)' }}>{drillLabels[drill]}</h1>
+          <p className="mt-1 max-w-lg text-sm leading-6" style={{ color: 'var(--tm-fg-mid)' }}>{drillTaglines[drill]}</p>
+        </div>
+      </div>
 
       {presets.length > 0 && (
         <div className="mt-8">

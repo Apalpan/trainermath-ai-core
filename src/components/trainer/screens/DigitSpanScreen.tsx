@@ -201,6 +201,10 @@ export default function DigitSpanScreen({
     <div className="tm-screen relative flex min-h-screen flex-col px-5 pb-8 pt-14">
       <ProgressTopBar progress={progress} />
 
+      {phase === 'feedback' && lastAnswer && (
+        <div key={round} className="tm-burst" data-kind={lastAnswer.isCorrect ? 'correct' : 'wrong'} aria-hidden="true" />
+      )}
+
       <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex items-center justify-center">
         <ComboPill combo={combo} flare={comboFlare} />
       </div>
@@ -243,6 +247,7 @@ export default function DigitSpanScreen({
               isLocked={phase !== 'answer'}
               pressedKey={pressedKey}
               onSelect={submitChoice}
+              stagger
             />
           </>
         )}
