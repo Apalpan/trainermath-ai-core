@@ -137,7 +137,7 @@ export default function ArenaScreen({
       setCombo(nextCombo);
       bestComboRef.current = Math.max(bestComboRef.current, nextCombo);
       setComboFlare(true);
-      window.setTimeout(() => setComboFlare(false), 340);
+      window.setTimeout(() => setComboFlare(false), 520);
       failsRef.current = 0;
       setBreather(null);
       setWrongInfo(null);

@@ -349,7 +349,12 @@ export default function TrainerMathApp() {
   const latestSession = sessions[0];
 
   return (
-    <main className="tm-app" data-theme={theme} data-surface={screen === 'arena' ? 'focus' : undefined}>
+    <main
+      className="tm-app"
+      data-theme={theme}
+      data-surface={screen === 'arena' ? 'focus' : undefined}
+      data-drill={screen === 'setup' || screen === 'arena' ? drill : undefined}
+    >
       {screen === 'home' && (
         <HomeScreen
           sessions={sessions}

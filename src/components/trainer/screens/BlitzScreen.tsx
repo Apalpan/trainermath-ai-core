@@ -123,7 +123,7 @@ export default function BlitzScreen({
       setCombo(nextCombo);
       bestComboRef.current = Math.max(bestComboRef.current, nextCombo);
       setComboFlare(true);
-      window.setTimeout(() => setComboFlare(false), 340);
+      window.setTimeout(() => setComboFlare(false), 520);
       xpRef.current += computeXp({
         isCorrect,
         level: config.level,

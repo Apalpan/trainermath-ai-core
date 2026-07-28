@@ -91,6 +91,10 @@ export default function HomeScreen({
   }, [sessions]);
 
   const dailyPct = Math.min(100, Math.round((daily.completedOpsToday / daily.targetOps) * 100));
+  const [staggerHub] = useState(() => !hubStaggerPlayed);
+  useMemo(() => {
+    hubStaggerPlayed = true;
+  }, []);
 
   return (
     <div className="tm-screen mx-auto w-full max-w-5xl px-5 pb-16 pt-6">
@@ -122,7 +126,7 @@ export default function HomeScreen({
       <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section>
           <h1 className="tm-display text-2xl font-bold sm:text-3xl" style={{ color: 'var(--tm-fg)' }}>¿Qué entrenas hoy?</h1>
-          <div className="tm-stagger mt-5 grid gap-3 sm:grid-cols-2">
+          <div className={`mt-5 grid gap-3 sm:grid-cols-2 ${staggerHub ? 'tm-stagger' : ''}`}>
             {drillCards.map((card) => {
               const best = bestByDrill.get(card.drill);
               return (
@@ -202,7 +206,7 @@ export default function HomeScreen({
               </div>
             </div>
             <p className="mt-2 text-[10.5px] font-semibold" style={{ color: 'var(--tm-fg-muted)' }}>
-              Meta de hoy: {daily.completedOpsToday}/{daily.targetOps} operaciones
+              Meta de hoy · {daily.completedOpsToday}/{daily.targetOps} ops
             </p>
           </section>
 
@@ -264,6 +268,10 @@ function MiniStat({ label, value, sub, icon }: { label: string; value: string; s
     </div>
   );
 }
+
+// el stagger del hub corre UNA vez por carga de app: re-escalonar 8 tiles
+// después de cada ronda pasa de premium a molesto
+let hubStaggerPlayed = false;
 
 const sessionTitle = (session: TrainingSession) => {
   const titles: Record<DrillKind, string> = {

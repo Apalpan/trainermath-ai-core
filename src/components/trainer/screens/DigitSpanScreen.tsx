@@ -130,7 +130,7 @@ export default function DigitSpanScreen({
       setCombo(nextCombo);
       bestComboRef.current = Math.max(bestComboRef.current, nextCombo);
       setComboFlare(true);
-      window.setTimeout(() => setComboFlare(false), 340);
+      window.setTimeout(() => setComboFlare(false), 520);
       correctStreakRef.current += 1;
       if (correctStreakRef.current >= 2) {
         correctStreakRef.current = 0;

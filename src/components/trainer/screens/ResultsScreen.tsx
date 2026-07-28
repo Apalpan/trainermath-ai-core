@@ -76,7 +76,7 @@ export default function ResultsScreen({
   }, [onConfigure, onHome, onRepeat]);
 
   return (
-    <div className="tm-screen mx-auto w-full max-w-2xl px-5 pb-16 pt-10 text-center sm:pt-16">
+    <div className="tm-screen mx-auto flex min-h-[100svh] w-full max-w-2xl flex-col justify-center px-5 py-10 text-center">
       {headline && (
         <p
           className="tm-display inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.2em]"

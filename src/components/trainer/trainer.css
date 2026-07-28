@@ -148,6 +148,20 @@
 /* durante el entrenamiento el campo se retira: el fondo nunca compite con la pregunta */
 .tm-app[data-surface='focus']::before { opacity: 0.5; }
 
+/* toma ambiental: al entrar a un juego, todo el campo se tiñe de su hue */
+@property --tm-drill-hue {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 250;
+}
+.tm-app { transition: --tm-drill-hue 400ms var(--ease-out); }
+.tm-app[data-drill]::before {
+  background:
+    radial-gradient(70% 50% at 50% -12%, oklch(0.62 0.14 var(--tm-drill-hue) / 0.12), transparent 68%),
+    radial-gradient(90% 60% at 50% 118%, oklch(0.62 0.14 var(--tm-drill-hue) / 0.05), transparent 70%),
+    linear-gradient(to bottom, oklch(1 0 0 / 0.02), transparent 22%);
+}
+
 /* grain anti-banding: estático, debajo del contenido */
 @supports (mix-blend-mode: overlay) {
   .tm-app::after {
@@ -447,14 +461,14 @@
 .tm-drill:focus-visible::before { opacity: 1; }
 .tm-drill:active { transform: translateY(0) scale(0.99); }
 
-.tm-app [data-drill='flashAnzan'] { --tm-drill-hue: 265; }
-.tm-app [data-drill='blitz'] { --tm-drill-hue: 225; }
-.tm-app [data-drill='operations'] { --tm-drill-hue: 235; }
-.tm-app [data-drill='digitSpan'] { --tm-drill-hue: 275; }
-.tm-app [data-drill='multiplicationSprint'] { --tm-drill-hue: 210; }
-.tm-app [data-drill='flashCards'] { --tm-drill-hue: 285; }
-.tm-app [data-drill='doubleX2'] { --tm-drill-hue: 195; }
-.tm-app [data-drill='cepreExam'] { --tm-drill-hue: 250; }
+.tm-app[data-drill='flashAnzan'], .tm-app [data-drill='flashAnzan'] { --tm-drill-hue: 265; }
+.tm-app[data-drill='blitz'], .tm-app [data-drill='blitz'] { --tm-drill-hue: 225; }
+.tm-app[data-drill='operations'], .tm-app [data-drill='operations'] { --tm-drill-hue: 235; }
+.tm-app[data-drill='digitSpan'], .tm-app [data-drill='digitSpan'] { --tm-drill-hue: 275; }
+.tm-app[data-drill='multiplicationSprint'], .tm-app [data-drill='multiplicationSprint'] { --tm-drill-hue: 210; }
+.tm-app[data-drill='flashCards'], .tm-app [data-drill='flashCards'] { --tm-drill-hue: 285; }
+.tm-app[data-drill='doubleX2'], .tm-app [data-drill='doubleX2'] { --tm-drill-hue: 195; }
+.tm-app[data-drill='cepreExam'], .tm-app [data-drill='cepreExam'] { --tm-drill-hue: 250; }
 
 .tm-drill-icon {
   display: grid;
@@ -637,7 +651,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 30;
+  z-index: 1;
   opacity: 0;
 }
 .tm-burst[data-kind='correct'] {
@@ -645,9 +659,8 @@
   animation: tm-burst 360ms var(--ease-out) both;
 }
 .tm-burst[data-kind='wrong'] {
-  background:
-    linear-gradient(to right, var(--tm-bad-soft), transparent 12%, transparent 88%, var(--tm-bad-soft)),
-    linear-gradient(to bottom, var(--tm-bad-soft), transparent 14%, transparent 86%, var(--tm-bad-soft));
+  /* viñeta de borde: el centro (operación y opciones) queda limpio */
+  background: radial-gradient(120% 120% at 50% 50%, transparent 58%, var(--tm-bad-soft) 100%);
   animation: tm-burst 420ms var(--ease-out) both;
 }
 
@@ -715,6 +728,7 @@
   .tm-app *::before,
   .tm-app *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 100ms !important;
   }

@@ -208,7 +208,7 @@ export default function SetupScreen(props: SetupProps) {
               : [];
 
   return (
-    <div className="tm-screen mx-auto w-full max-w-2xl px-5 pb-32 pt-8 sm:pt-12">
+    <div className="tm-screen mx-auto w-full max-w-2xl px-5 pb-6 pt-8 sm:pt-12">
       <button type="button" className="tm-btn-ghost tm-press inline-flex items-center gap-2 px-4 py-2.5 text-sm" onClick={onBack}>
         <ArrowLeft size={16} /> Inicio
       </button>
@@ -290,7 +290,15 @@ export default function SetupScreen(props: SetupProps) {
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-30 px-5 pb-5 pt-8" style={{ background: 'linear-gradient(to top, var(--tm-bg) 55%, transparent)' }}>
+      <div
+        className="sticky bottom-0 z-30 -mx-5 mt-8 px-5 pb-5 pt-6"
+        style={{ background: 'linear-gradient(to top, var(--tm-bg) 60%, transparent)', paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+      >
+        <p className="mb-2 text-center text-xs font-semibold" style={{ color: 'var(--tm-fg-muted)' }}>
+          {presetIndex >= 0 && presets[presetIndex]
+            ? `${presets[presetIndex].name} · ${presets[presetIndex].detail}`
+            : 'Configuración personalizada'}
+        </p>
         <button
           type="button"
           className="tm-btn-cta tm-press mx-auto flex w-full max-w-2xl items-center justify-center gap-2 px-6 py-4 text-base font-extrabold"
